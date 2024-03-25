@@ -1,10 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
-#include <math.h>
-#include <string.h>
 #include <pthread.h>
-#include <semaphore.h>
 #include "../include/utils.h"
 
 // gcc -Wall -Wextra -Werror -std=c99 -pedantic -g -O3 -o g1D-sp-075d g1D-sp-075d.c -lm -lpthread
@@ -19,67 +14,8 @@
 NO: Al cabo de un ciclo, antes de grabar el dmp, pasamos el 50% de la energia de (14) particulas con |p|>3sigma a 14 particulas con 0.15sigma<|p|<.9sigma
  */
 
-#define PI 3.14159265358979323846
-// #define N_PART (1 << 21)            // 2097152
-// #define BINS 500                    // (2*BINS+1)
-#define epsmax2M 9.0E-46 // E maxima
-#define DEmax2M 6.0e-50  // mas grande para pmax (3.5964e-48: 1 canal de p menos que el max) // OJO: ahora DEmax2M nos da 1.2e-50 (8/2/24)
-                         // 6.296208e-49 // 2*5.24684E-24*6.0e-26
-#define epsmin2M 9.0E-52 // 2m * E minima = pmin^2
-
-typedef struct
-{
-  int s, e;
-  double *xx, *pp;
-  int *hh, *gg, *hghg;
-  unsigned int Ntandas;
-  int *steps;
-  int BINS;
-  double DT, M, alfa, pmin075, pmax075;
-} range_t;
-
-sem_t iter_sem, hist_sem; // semaphore
-
-static void atomic_increment(int *ptr)
-{
-  __sync_fetch_and_add(ptr, 1);
-}
-
-void *work(void *range)
-{
-  int s = ((range_t *)range)->s;
-  int e = ((range_t *)range)->e;
-  double *x = ((range_t *)range)->xx;
-  double *p = ((range_t *)range)->pp;
-  int *h = ((range_t *)range)->hh;
-  int *g = ((range_t *)range)->gg;
-  int *hg = ((range_t *)range)->hghg;
-  unsigned int Ntandas = ((range_t *)range)->Ntandas;
-  int *steps = ((range_t *)range)->steps;
-  int BINS = ((range_t *)range)->BINS;
-  double DT = ((range_t *)range)->DT;
-  double M = ((range_t *)range)->M;
-  double alfa = ((range_t *)range)->alfa;
-  double pmin075 = ((range_t *)range)->pmin075;
-  double pmax075 = ((range_t *)range)->pmax075;
-  for (unsigned int j = 0; j < Ntandas; j++)
-  {
-    sem_wait(&iter_sem); // semaforo que señala que un hilo queda reservado para ejecución
-
-    iter_in_range(steps[j], s, e, x, p, DT, M, alfa, pmin075, pmax075); // avanza steps[j] pasos en el rango de partículas [s, e)
-
-    for (int i = s; i < e; i++)
-    {
-      int h_idx = (2.0 * x[i] + 1) * BINS + 2.5;
-      int g_idx = (p[i] / 3.0e-23 + 1) * BINS + 0.5;
-      atomic_increment(h + h_idx);                           // incrementa el casillero h_idx de h
-      atomic_increment(g + g_idx);                           // incrementa el casillero g_idx de g
-      atomic_increment(hg + (2 * BINS + 1) * h_idx + g_idx); // incrementa el casillero de hg
-    }
-    sem_post(&hist_sem); // semaforo que lo libera
-  }
-  return NULL;
-}
+sem_t iter_sem;
+sem_t hist_sem;
 
 int main(void)
 {
