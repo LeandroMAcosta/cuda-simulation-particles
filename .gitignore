@@ -53,3 +53,8 @@ dkms.conf
 
 # VS Code
 .vscode/
+
+# Files generated
+graba.dmp
+hists.eps
+*.dat

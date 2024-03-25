@@ -16,4 +16,4 @@ $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(TARGET) $(OBJ)
+	rm -f $(TARGET) $(OBJ) graba.dmp hists.eps *.dat
