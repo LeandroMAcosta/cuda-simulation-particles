@@ -4,7 +4,7 @@ CLIBS := -lm -lpthread
 
 TARGET := main
 
-SRC := src/g1D-sp-075d.c
+SRC := src/g1D-sp-075d.c src/utils.c
 OBJ := $(SRC:.c=.o)
 
 all: $(TARGET)
