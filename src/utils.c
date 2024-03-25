@@ -2,7 +2,7 @@
 
 double d_rand()
 {
-    return (rand() / (double)RAND_MAX);
+    return (double)rand() / ((double)RAND_MAX + 1);
 }
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
