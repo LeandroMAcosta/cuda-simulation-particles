@@ -38,7 +38,7 @@ void load_parameters_from_file(char filename[],
         (*Ntandas)++;
     fscanf(inputFile, " %*[^:]: %s %s", du, indat);
     *retoma = strcmp(du, "sí");
-    printf("%s lee %s\t", du, saldat);
+    printf("%s lee %s\t", du, indat);
     fscanf(inputFile, " %*[^:]: %s %s", du, saldat);
     printf("%s escribe %s\t", du, saldat);
     *dump = strcmp(du, "sí");
