@@ -2,7 +2,7 @@
 
 double d_rand()
 {
-    return (double)rand() / (double)RAND_MAX;
+    return (rand() / (double)RAND_MAX);
 }
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
@@ -25,7 +25,9 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     fscanf(inputFile, " %*[^\n]");
     *Ntandas = 0;
     while (fscanf(inputFile, " %d", &steps[*Ntandas]) == 1)
+    {
         (*Ntandas)++;
+    }
     fscanf(inputFile, " %*[^:]: %s %s", du, inputFilename);
     *retake = strcmp(du, "sí");
     printf("%s lee %s\t", du, inputFilename);
@@ -169,17 +171,18 @@ void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double 
             {
                 x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k);
                 if (fabs(x_tmp) > 0.502)
+                {
                     x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
+                }
                 for (int j = 1; j <= labs(k); j++)
                 {
                     double ptmp075 = pow((fabs(p_tmp)), 0.75);
-                    double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075),
-                                               4); //+d;
-                                                   //    if (fabs(DeltaE) > p_tmp*p_tmp ) {
-                                                   //         printf("i=%d step=%d  p_tmp=%le  rpmin=%le
-                                                   //         rpmax=%le   DeltaE=%le  fabs(DE)=%le
-                                                   //         k=%ld\n",i,step,p_tmp,rpmin,rpmax,DeltaE,fabs(DeltaE),k);
-                                                   //       }
+                    double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4); //+d;
+                    //    if (fabs(DeltaE) > p_tmp*p_tmp ) {
+                    //         printf("i=%d step=%d  p_tmp=%le  rpmin=%le
+                    //         rpmax=%le   DeltaE=%le  fabs(DE)=%le
+                    //         k=%ld\n",i,step,p_tmp,rpmin,rpmax,DeltaE,fabs(DeltaE),k);
+                    //       }
                     p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (d_rand() - 0.5));
                 }
                 p_tmp = (k % 2 ? -1.0 : 1.0) * signop * p_tmp;
@@ -245,22 +248,22 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
             chi2x, chi2xr, chiIx, chiPx, chi2p, chiIp, chiPp);
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.502, h[0], -3.0e-23, g[0]);
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.501, h[1], -3.0e-23, g[0]);
-    for (int i = 0; i <= BINS << 1; i++) // BINS << 1 (shift-izq) equivale a 2*BINS
+    for (int i = 0; i <= BINS << 1; i++)
+    { // BINS << 1 (shift-izq) equivale a 2*BINS
         fprintf(hist, "%8.5f %6d %24.12E %6d\n", (0.5 * i / BINS - 0.5), h[i + 2], (3.0e-23 * i / BINS - 3.0e-23),
                 g[i]);
+    }
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.501, h[2 * BINS + 3], 3.0e-23, g[2 * BINS]);
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.502, h[2 * BINS + 4], 3.0e-23, g[2 * BINS]);
     //      OJO: DESCOMENTAR      //
-    //  for (int i = 0; i <= (BINS+2) << 1; i++) { // &&&&&&&&&&&&&&&&
-    //    for (int j = 0; j <= BINS << 1; j++) fprintf(hist, "%6d",
-    //    hg[(2*BINS+1)*i+j]); fprintf(hist,"\n"); // &&&&&&&&&&&&&&&&
-    //  }
+    //  for (int i = 0; i <= (BINS+2) << 1; i++)
+    //    for (int j = 0; j <= BINS << 1; j++)
+    //      fprintf(hist, "%6d", hg[(2*BINS+1)*i+j]); fprintf(hist,"\n");
     fclose(hist);
 
     memset(h, 0, (2 * BINS + 5) * sizeof(int));
     memset(g, 0, (2 * BINS + 1) * sizeof(int));
-    memset(hg, 0,
-           (2 * BINS + 5) * (2 * BINS + 1) * sizeof(int)); // &&&&&&&&&&&&&&&&
+    memset(hg, 0, (2 * BINS + 5) * (2 * BINS + 1) * sizeof(int));
 
     return 0; // avisa que se cumplió la condición sobre los chi2
 }

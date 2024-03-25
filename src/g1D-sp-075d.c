@@ -26,14 +26,12 @@ sem_t hist_sem;
 
 int main()
 {
-    int N_THREADS, N_PART, BINS, steps[50], retake, dump;
-    unsigned int Ntandas;
+    int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0;
+    unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
-    double DT, M, sigmaL;
+    double DT = 0.0, M = 0.0, sigmaL = 0.0;
 
-    srand(time(NULL));
-
-    double xi1, xi2;
+    double xi1 = 0.0, xi2 = 0.0;
     int X0 = 1;
     char filename[32];
 
@@ -42,6 +40,7 @@ int main()
     double pmin075 = 7.20843424240426E-020, pmax075 = 1.2818610191887E-017;
 
     char data_filename[] = "datos.in";
+
     load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
                               saveFilename, &retake, &dump, &sigmaL);
 
@@ -53,15 +52,19 @@ int main()
     int *g = malloc(sizeof(int) * (2 * BINS + 1));
     int *hg = malloc(sizeof(int) * (2 * BINS + 5) * (2 * BINS + 1));
 
+    srand(time(NULL));
+
     for (int i = 0; i <= BINS << 1; i++)
     {
         DpE[i] = 6.0E-26 * N_PART / (5.24684E-24 * sqrt(2.0 * PI)) *
                  exp(-pow(3.0e-23 * (1.0 * i / BINS - 1) / 5.24684E-24, 2) / 2);
     }
+
     for (int i = 0; i <= (BINS + 2) << 1; i++)
     {
         DxE[i] = 1.0E-3 * N_PART;
     }
+
     DxE[0] = 0.0;
     DxE[1] = 0.0;
     DxE[2] = DxE[2] * 0.5;
@@ -72,13 +75,16 @@ int main()
     memset(h, 0, (2 * BINS + 5) * sizeof(int));
     memset(g, 0, (2 * BINS + 1) * sizeof(int));
     memset(hg, 0, (2 * BINS + 5) * (2 * BINS + 1) * sizeof(int));
+
     if (retake != 0)
     {
         while (X0 == 1)
         {
             // initialize particles
             for (int i = 0; i < N_PART; i++)
+            {
                 x[i] = d_rand() * 0.5;
+            }
             for (int i = 0; i < N_PART >> 1; i++)
             {
                 xi1 = sqrt(-2.0 * log(d_rand() + 1E-35));
@@ -97,13 +103,16 @@ int main()
             }
             X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS);
             if (X0 == 1)
+            {
                 printf("falló algún chi2:   X0 =%1d\n", X0);
+            }
         }
     }
     else
     {
         read_data(inputFilename, x, p, &evolution, N_PART);
     }
+
     energy_sum(p, N_PART, evolution, M);
     printf("d=%12.9E  alfa=%12.9E\n", d, alfa);
 
@@ -137,9 +146,13 @@ int main()
     for (unsigned int i = 0; i < Ntandas; i++)
     {
         for (int i = 0; i < N_THREADS; i++)
+        {
             sem_post(&iter_sem);
+        }
         for (int i = 0; i < N_THREADS; i++)
+        {
             sem_wait(&hist_sem);
+        }
 
         evolution += steps[i];
         if (evolution < 10000000)
@@ -152,16 +165,20 @@ int main()
             char *e = memchr(filename, 'e', 32);
             strcpy(e + 1, e + 3);
         }
-
         if (dump == 0)
+        {
             save_data(saveFilename, x, p, evolution, N_PART);
+        }
         make_hist(h, g, hg, DxE, DpE, filename, BINS);
         energy_sum(p, N_PART, evolution, M);
     }
     printf("Completo evolution = %d\n", evolution);
 
     for (int i = 0; i < N_THREADS; i++)
+    {
         pthread_join(threads[i], NULL);
+    }
+
     free(x);
     free(p);
     free(DxE);
