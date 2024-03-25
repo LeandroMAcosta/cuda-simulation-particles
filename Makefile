@@ -15,5 +15,8 @@ $(TARGET): $(OBJ)
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+format:
+	clang-format -style=Microsoft -i src/*.c include/*.h
+
 clean:
 	rm -f $(TARGET) $(OBJ) graba.dmp hists.eps *.dat

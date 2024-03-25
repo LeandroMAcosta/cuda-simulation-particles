@@ -5,19 +5,9 @@ double d_rand()
     return (double)rand() / (double)RAND_MAX;
 }
 
-void load_parameters_from_file(char filename[],
-                               int *N_PART,
-                               int *BINS,
-                               double *DT,
-                               double *M,
-                               int *N_THREADS,
-                               unsigned int *Ntandas,
-                               int steps[],
-                               char indat[],
-                               char saldat[],
-                               int *retoma,
-                               int *dump,
-                               double *sigmaL)
+void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
+                               unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
+                               int *retake, int *dump, double *sigmaL)
 {
     char du[4];
     FILE *inputFile = fopen(filename, "r");
@@ -36,11 +26,11 @@ void load_parameters_from_file(char filename[],
     *Ntandas = 0;
     while (fscanf(inputFile, " %d", &steps[*Ntandas]) == 1)
         (*Ntandas)++;
-    fscanf(inputFile, " %*[^:]: %s %s", du, indat);
-    *retoma = strcmp(du, "sí");
-    printf("%s lee %s\t", du, indat);
-    fscanf(inputFile, " %*[^:]: %s %s", du, saldat);
-    printf("%s escribe %s\t", du, saldat);
+    fscanf(inputFile, " %*[^:]: %s %s", du, inputFilename);
+    *retake = strcmp(du, "sí");
+    printf("%s lee %s\t", du, inputFilename);
+    fscanf(inputFile, " %*[^:]: %s %s", du, saveFilename);
+    printf("%s escribe %s\t", du, saveFilename);
     *dump = strcmp(du, "sí");
     fscanf(inputFile, " %*[^:]: %le", sigmaL);
     printf("sigma(L) = %le\n", *sigmaL);
@@ -133,7 +123,8 @@ void save_data(char filename[], double *x, double *p, int evolution, int N_PART)
             }
             i++;
         }
-        np = 0; // otra vez la busqueda de p chicos, porque repartimos la otra mitad de E+
+        np = 0; // otra vez la busqueda de p chicos, porque repartimos la otra
+                // mitad de E+
         while ((np < Npmod) && (i < N_PART))
         {
             int signopr = copysign(1.0, sqrtp2[np]);
@@ -161,7 +152,8 @@ void save_data(char filename[], double *x, double *p, int evolution, int N_PART)
     fclose(saveFile);
 }
 
-void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double M, double alfa, double pmin075, double pmax075)
+void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double M, double alfa, double pmin075,
+                   double pmax075)
 {
     long int k;
     int signop;
@@ -181,10 +173,13 @@ void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double 
                 for (int j = 1; j <= labs(k); j++)
                 {
                     double ptmp075 = pow((fabs(p_tmp)), 0.75);
-                    double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4); //+d;
-                                                                                              //    if (fabs(DeltaE) > p_tmp*p_tmp ) {
-                                                                                              //         printf("i=%d step=%d  p_tmp=%le  rpmin=%le  rpmax=%le   DeltaE=%le  fabs(DE)=%le  k=%ld\n",i,step,p_tmp,rpmin,rpmax,DeltaE,fabs(DeltaE),k);
-                                                                                              //       }
+                    double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075),
+                                               4); //+d;
+                                                   //    if (fabs(DeltaE) > p_tmp*p_tmp ) {
+                                                   //         printf("i=%d step=%d  p_tmp=%le  rpmin=%le
+                                                   //         rpmax=%le   DeltaE=%le  fabs(DE)=%le
+                                                   //         k=%ld\n",i,step,p_tmp,rpmin,rpmax,DeltaE,fabs(DeltaE),k);
+                                                   //       }
                     p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (d_rand() - 0.5));
                 }
                 p_tmp = (k % 2 ? -1.0 : 1.0) * signop * p_tmp;
@@ -215,7 +210,8 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
         }
         //    chi2xr = chi2x;
         //    for (int i = 0; i <= 2; i++) {
-        //      chi2xr -=  pow(h[i]-DxE[i],2)/DxE[i] + pow(h[2*BINS+4-i]-DxE[2*BINS+4-i],2)/DxE[2*BINS+4-i] ;
+        //      chi2xr -=  pow(h[i]-DxE[i],2)/DxE[i] +
+        //      pow(h[2*BINS+4-i]-DxE[2*BINS+4-i],2)/DxE[2*BINS+4-i] ;
         //    }
         chi2x = chi2x / (2.0 * BINS + 1);
         chi2xr = chi2x; // chi2xr = chi2xr/(2.0*BINS-1) ;
@@ -242,28 +238,29 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
     //  printf("chi2x =%9.6f   chi2p =%9.6f   chiIp =%9.6f   chiPp =%9.6f\n",
     //          chi2x, chi2p, chiIp, chiPp);
     FILE *hist = fopen(filename, "w");
-    fprintf(hist, "#   x    poblacion       p      poblacion    chi2x =%9.6f  chi2xr =%9.6f  chiIx =%9.6f  chiPx =%9.6f  chi2p =%9.6f  chiIp =%9.6f  chiPp =%9.6f\n", chi2x, chi2xr, chiIx, chiPx, chi2p, chiIp, chiPp);
-    fprintf(hist, "%8.5f %6d %24.12E %6d\n",
-            -0.502, h[0], -3.0e-23, g[0]);
-    fprintf(hist, "%8.5f %6d %24.12E %6d\n",
-            -0.501, h[1], -3.0e-23, g[0]);
+    fprintf(hist,
+            "#   x    poblacion       p      poblacion    chi2x =%9.6f  chi2xr "
+            "=%9.6f  chiIx =%9.6f  chiPx =%9.6f  chi2p =%9.6f  chiIp =%9.6f  "
+            "chiPp =%9.6f\n",
+            chi2x, chi2xr, chiIx, chiPx, chi2p, chiIp, chiPp);
+    fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.502, h[0], -3.0e-23, g[0]);
+    fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.501, h[1], -3.0e-23, g[0]);
     for (int i = 0; i <= BINS << 1; i++) // BINS << 1 (shift-izq) equivale a 2*BINS
-        fprintf(hist, "%8.5f %6d %24.12E %6d\n",
-                (0.5 * i / BINS - 0.5), h[i + 2], (3.0e-23 * i / BINS - 3.0e-23), g[i]);
-    fprintf(hist, "%8.5f %6d %24.12E %6d\n",
-            0.501, h[2 * BINS + 3], 3.0e-23, g[2 * BINS]);
-    fprintf(hist, "%8.5f %6d %24.12E %6d\n",
-            0.502, h[2 * BINS + 4], 3.0e-23, g[2 * BINS]);
+        fprintf(hist, "%8.5f %6d %24.12E %6d\n", (0.5 * i / BINS - 0.5), h[i + 2], (3.0e-23 * i / BINS - 3.0e-23),
+                g[i]);
+    fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.501, h[2 * BINS + 3], 3.0e-23, g[2 * BINS]);
+    fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.502, h[2 * BINS + 4], 3.0e-23, g[2 * BINS]);
     //      OJO: DESCOMENTAR      //
     //  for (int i = 0; i <= (BINS+2) << 1; i++) { // &&&&&&&&&&&&&&&&
-    //    for (int j = 0; j <= BINS << 1; j++) fprintf(hist, "%6d", hg[(2*BINS+1)*i+j]);
-    //    fprintf(hist,"\n"); // &&&&&&&&&&&&&&&&
+    //    for (int j = 0; j <= BINS << 1; j++) fprintf(hist, "%6d",
+    //    hg[(2*BINS+1)*i+j]); fprintf(hist,"\n"); // &&&&&&&&&&&&&&&&
     //  }
     fclose(hist);
 
     memset(h, 0, (2 * BINS + 5) * sizeof(int));
     memset(g, 0, (2 * BINS + 1) * sizeof(int));
-    memset(hg, 0, (2 * BINS + 5) * (2 * BINS + 1) * sizeof(int)); // &&&&&&&&&&&&&&&&
+    memset(hg, 0,
+           (2 * BINS + 5) * (2 * BINS + 1) * sizeof(int)); // &&&&&&&&&&&&&&&&
 
     return 0; // avisa que se cumplió la condición sobre los chi2
 }
@@ -292,9 +289,11 @@ void *work(void *range)
     double pmax075 = ((range_t *)range)->pmax075;
     for (unsigned int j = 0; j < Ntandas; j++)
     {
-        sem_wait(&iter_sem); // semaforo que señala que un hilo queda reservado para ejecución
+        sem_wait(&iter_sem); // semaforo que señala que un hilo queda reservado
+                             // para ejecución
 
-        iter_in_range(steps[j], s, e, x, p, DT, M, alfa, pmin075, pmax075); // avanza steps[j] pasos en el rango de partículas [s, e)
+        iter_in_range(steps[j], s, e, x, p, DT, M, alfa, pmin075,
+                      pmax075); // avanza steps[j] pasos en el rango de partículas [s, e)
 
         for (int i = s; i < e; i++)
         {
