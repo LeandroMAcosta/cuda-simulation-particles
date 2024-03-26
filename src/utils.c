@@ -177,12 +177,7 @@ void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double 
                 for (int j = 1; j <= labs(k); j++)
                 {
                     double ptmp075 = pow((fabs(p_tmp)), 0.75);
-                    double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4); //+d;
-                    //    if (fabs(DeltaE) > p_tmp*p_tmp ) {
-                    //         printf("i=%d step=%d  p_tmp=%le  rpmin=%le
-                    //         rpmax=%le   DeltaE=%le  fabs(DE)=%le
-                    //         k=%ld\n",i,step,p_tmp,rpmin,rpmax,DeltaE,fabs(DeltaE),k);
-                    //       }
+                    double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4);
                     p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (d_rand() - 0.5));
                 }
                 p_tmp = (k % 2 ? -1.0 : 1.0) * signop * p_tmp;
@@ -211,13 +206,8 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
         {
             chi2x += pow(h[i] - DxE[i], 2) / DxE[i];
         }
-        //    chi2xr = chi2x;
-        //    for (int i = 0; i <= 2; i++) {
-        //      chi2xr -=  pow(h[i]-DxE[i],2)/DxE[i] +
-        //      pow(h[2*BINS+4-i]-DxE[2*BINS+4-i],2)/DxE[2*BINS+4-i] ;
-        //    }
         chi2x = chi2x / (2.0 * BINS + 1);
-        chi2xr = chi2x; // chi2xr = chi2xr/(2.0*BINS-1) ;
+        chi2xr = chi2x; // chi2xr = chi2x reducido
     }
     for (int i = 0; i <= 2 * (BINS - BORDES); i++)
     {
@@ -238,8 +228,7 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
     chi2p = chi2p / (2.0 * (BINS - BORDES) + 1);
     chiIp = chiIp / (2.0 * (BINS - BORDES));
     chiPp = chiPp / (2.0 * (BINS - BORDES));
-    //  printf("chi2x =%9.6f   chi2p =%9.6f   chiIp =%9.6f   chiPp =%9.6f\n",
-    //          chi2x, chi2p, chiIp, chiPp);
+
     FILE *hist = fopen(filename, "w");
     fprintf(hist,
             "#   x    poblacion       p      poblacion    chi2x =%9.6f  chi2xr "
@@ -249,16 +238,13 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.502, h[0], -3.0e-23, g[0]);
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.501, h[1], -3.0e-23, g[0]);
     for (int i = 0; i <= BINS << 1; i++)
-    { // BINS << 1 (shift-izq) equivale a 2*BINS
+    {
         fprintf(hist, "%8.5f %6d %24.12E %6d\n", (0.5 * i / BINS - 0.5), h[i + 2], (3.0e-23 * i / BINS - 3.0e-23),
                 g[i]);
     }
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.501, h[2 * BINS + 3], 3.0e-23, g[2 * BINS]);
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.502, h[2 * BINS + 4], 3.0e-23, g[2 * BINS]);
-    //      OJO: DESCOMENTAR      //
-    //  for (int i = 0; i <= (BINS+2) << 1; i++)
-    //    for (int j = 0; j <= BINS << 1; j++)
-    //      fprintf(hist, "%6d", hg[(2*BINS+1)*i+j]); fprintf(hist,"\n");
+
     fclose(hist);
 
     memset(h, 0, (2 * BINS + 5) * sizeof(int));
