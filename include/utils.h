@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include <math.h>
+#include <pthread.h>
 #include <semaphore.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +18,8 @@
 #define epsmin2M 9.0E-52 // 2m * E minima = pmin^2
 
 extern sem_t iter_sem, hist_sem; // semaphore
+
+extern pthread_mutex_t mutex; // mutex
 
 typedef struct
 {

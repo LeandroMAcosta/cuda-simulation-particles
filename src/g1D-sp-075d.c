@@ -24,6 +24,8 @@ NO: Al cabo de un ciclo, antes de grabar el dmp, pasamos el 50% de la energia de
 sem_t iter_sem;
 sem_t hist_sem;
 
+pthread_mutex_t mutex;
+
 int main()
 {
     int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0;
@@ -51,6 +53,10 @@ int main()
     int *h = malloc(sizeof(int) * (2 * BINS + 5));
     int *g = malloc(sizeof(int) * (2 * BINS + 1));
     int *hg = malloc(sizeof(int) * (2 * BINS + 5) * (2 * BINS + 1));
+
+    // Inicializar el mutex
+    pthread_mutex_init(&mutex, NULL);
+    int rc = 0;
 
     srand(time(NULL));
 
@@ -140,7 +146,12 @@ int main()
                             .alfa = alfa,
                             .pmin075 = pmin075,
                             .pmax075 = pmax075};
-        pthread_create(&threads[i], NULL, work, &args[i]);
+        rc = pthread_create(&threads[i], NULL, work, &args[i]);
+        if (rc)
+        {
+            printf("ERROR; return code from pthread_create() is %d\n", rc);
+            exit(-1);
+        }
     }
 
     for (unsigned int i = 0; i < Ntandas; i++)
@@ -176,8 +187,16 @@ int main()
 
     for (int i = 0; i < N_THREADS; i++)
     {
-        pthread_join(threads[i], NULL);
+        rc = pthread_join(threads[i], NULL);
+        if (rc)
+        {
+            printf("ERROR; return code from pthread_join() is %d\n", rc);
+            exit(-1);
+        }
     }
+
+    // destruir el mutex
+    pthread_mutex_destroy(&mutex);
 
     free(x);
     free(p);
