@@ -153,7 +153,7 @@ void save_data(char filename[], double *x, double *p, int evolution, int N_PART)
     fwrite(p, sizeof(p[0]) * N_PART, 1, saveFile);
     fclose(saveFile);
 }
-
+/*
 void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double M, double alfa, double pmin075,
                    double pmax075)
 {
@@ -178,9 +178,9 @@ void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double 
                 {
                     double ptmp075 = pow((fabs(p_tmp)), 0.75);
                     double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4);
-                    pthread_mutex_lock(&mutex);
+                    // pthread_mutex_lock(&mutex);
                     double randomValue = d_rand();
-                    pthread_mutex_unlock(&mutex);
+                    // pthread_mutex_unlock(&mutex);
                     p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                 }
                 p_tmp = (k % 2 ? -1.0 : 1.0) * signop * p_tmp;
@@ -190,6 +190,7 @@ void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double 
         p[i] = p_tmp;
     }
 }
+*/
 
 int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS)
 {
@@ -257,45 +258,9 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
     return 0; // avisa que se cumplió la condición sobre los chi2
 }
 
+/*
 static void atomic_increment(int *ptr)
 {
     __sync_fetch_and_add(ptr, 1);
 }
-
-void *work(void *range)
-{
-    int s = ((range_t *)range)->s;
-    int e = ((range_t *)range)->e;
-    double *x = ((range_t *)range)->xx;
-    double *p = ((range_t *)range)->pp;
-    int *h = ((range_t *)range)->hh;
-    int *g = ((range_t *)range)->gg;
-    int *hg = ((range_t *)range)->hghg;
-    unsigned int Ntandas = ((range_t *)range)->Ntandas;
-    int *steps = ((range_t *)range)->steps;
-    int BINS = ((range_t *)range)->BINS;
-    double DT = ((range_t *)range)->DT;
-    double M = ((range_t *)range)->M;
-    double alfa = ((range_t *)range)->alfa;
-    double pmin075 = ((range_t *)range)->pmin075;
-    double pmax075 = ((range_t *)range)->pmax075;
-    for (unsigned int j = 0; j < Ntandas; j++)
-    {
-        sem_wait(&iter_sem); // semaforo que señala que un hilo queda reservado
-                             // para ejecución
-
-        iter_in_range(steps[j], s, e, x, p, DT, M, alfa, pmin075,
-                      pmax075); // avanza steps[j] pasos en el rango de partículas [s, e)
-
-        for (int i = s; i < e; i++)
-        {
-            int h_idx = (2.0 * x[i] + 1) * BINS + 2.5;
-            int g_idx = (p[i] / 3.0e-23 + 1) * BINS + 0.5;
-            atomic_increment(h + h_idx);                           // incrementa el casillero h_idx de h
-            atomic_increment(g + g_idx);                           // incrementa el casillero g_idx de g
-            atomic_increment(hg + (2 * BINS + 1) * h_idx + g_idx); // incrementa el casillero de hg
-        }
-        sem_post(&hist_sem); // semaforo que lo libera
-    }
-    return NULL;
-}
+*/

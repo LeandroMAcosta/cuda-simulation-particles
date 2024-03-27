@@ -1,6 +1,5 @@
-#include <pthread.h>
+#include <omp.h>
 #include <time.h>
-
 #include "../include/utils.h"
 
 // gcc -Wall -Wextra -Werror -std=c99 -pedantic -g -O3 -o g1D-sp-075d
@@ -20,11 +19,6 @@ canales en cada extremo, redefiniendo los chi2x
 NO: Al cabo de un ciclo, antes de grabar el dmp, pasamos el 50% de la energia de
 (14) particulas con |p|>3sigma a 14 particulas con 0.15sigma<|p|<.9sigma
  */
-
-sem_t iter_sem;
-sem_t hist_sem;
-
-pthread_mutex_t mutex;
 
 int main()
 {
@@ -54,18 +48,16 @@ int main()
     int *g = malloc(sizeof(int) * (2 * BINS + 1));
     int *hg = malloc(sizeof(int) * (2 * BINS + 5) * (2 * BINS + 1));
 
-    // Inicializar el mutex
-    pthread_mutex_init(&mutex, NULL);
-    int rc = 0;
-
     srand(time(NULL));
 
+    #pragma omp parallel for
     for (int i = 0; i <= BINS << 1; i++)
     {
         DpE[i] = 6.0E-26 * N_PART / (5.24684E-24 * sqrt(2.0 * PI)) *
                  exp(-pow(3.0e-23 * (1.0 * i / BINS - 1) / 5.24684E-24, 2) / 2);
     }
 
+    #pragma omp parallel for
     for (int i = 0; i <= (BINS + 2) << 1; i++)
     {
         DxE[i] = 1.0E-3 * N_PART;
@@ -98,15 +90,15 @@ int main()
                 p[2 * i] = xi1 * cos(xi2) * 5.24684E-24;
                 p[2 * i + 1] = xi1 * sin(xi2) * 5.24684E-24;
             }
+
+            #pragma omp parallel for
             for (int i = 0; i < N_PART; i++)
             {
                 h[(int)((2.0 * x[i] + 1) * BINS + 2.5)]++;
                 g[(int)((p[i] / 3.0e-23 + 1) * BINS + 0.5)]++;
-            }
-            for (int i = 0; i < N_PART; i++)
-            {
                 hg[(2 * BINS + 1) * (int)((2.0 * x[i] + 1) * BINS + 2.5) + (int)((p[i] / 3e-23 + 1) * BINS + 0.5)]++;
             }
+
             X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS);
             if (X0 == 1)
             {
@@ -122,49 +114,55 @@ int main()
     energy_sum(p, N_PART, evolution, M);
     printf("d=%12.9E  alfa=%12.9E\n", d, alfa);
 
-    sem_init(&iter_sem, 0, 0);
-    sem_init(&hist_sem, 0, 0);
-
-    // create threads
-    pthread_t threads[N_THREADS]; // indentificadores de c/hilo (tipo específico
-                                  // pthread_t)
-    range_t args[N_THREADS];      // c/hilo se encarga de un grupo de partículas
-    for (int i = 0; i < N_THREADS; i++)
+    // Work code here:
+    for(unsigned int j = 0; j < Ntandas; j++)
     {
-        args[i] = (range_t){.s = (N_PART / N_THREADS) * i,
-                            .e = (N_PART / N_THREADS) * (i + 1),
-                            .xx = x,
-                            .pp = p,
-                            .hh = h,
-                            .gg = g,
-                            .hghg = hg,
-                            .Ntandas = Ntandas,
-                            .steps = steps,
-                            .BINS = BINS,
-                            .DT = DT,
-                            .M = M,
-                            .alfa = alfa,
-                            .pmin075 = pmin075,
-                            .pmax075 = pmax075};
-        rc = pthread_create(&threads[i], NULL, work, &args[i]);
-        if (rc)
+        // iter_in_range code here:
+        long int k;
+        int signop;
+        #pragma omp parallel for private(k, signop) shared(x, p) schedule(static) num_threads(N_THREADS)
+        for(int i = 0; i < N_PART; ++i)
         {
-            printf("ERROR; return code from pthread_create() is %d\n", rc);
-            exit(-1);
+            double x_tmp = x[i], p_tmp = p[i];
+            for(int step = 0; step < steps[j]; step++)
+            {
+                x_tmp += p_tmp * DT / M;
+                signop = copysign(1.0, p_tmp);
+                k = trunc(x_tmp + 0.5 * signop);
+                if (k != 0)
+                {
+                    x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k);
+                    if(fabs(x_tmp) > 0.502)
+                    {
+                        x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
+                    }
+                    for(int l = 1; l <= labs(k); l++)
+                    {
+                        double ptmp075 = pow(fabs(p_tmp), 0.75);
+                        double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4);
+                        p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (d_rand() - 0.5));
+                    }
+                    p_tmp = (k % 2 ? -1.0 : 1.0) * signop * p_tmp;
+                }
+            }
+            x[i] = x_tmp;
+            p[i] = p_tmp;
+        }
+        // End of iter_in_range code.
+
+        for(int i = 0; i < N_PART; i++)
+        {
+            int h_idx = (int)((2.0 * x[i] + 1) * BINS + 2.5);
+            int g_idx = (int)((p[i] / 3.0e-23 + 1) * BINS + 0.5);
+            h[h_idx]++;
+            g[g_idx]++;
+            hg[(2 * BINS + 1) * h_idx + g_idx]++;
         }
     }
+    // End of Work code.
 
     for (unsigned int i = 0; i < Ntandas; i++)
     {
-        for (int i = 0; i < N_THREADS; i++)
-        {
-            sem_post(&iter_sem);
-        }
-        for (int i = 0; i < N_THREADS; i++)
-        {
-            sem_wait(&hist_sem);
-        }
-
         evolution += steps[i];
         if (evolution < 10000000)
         {
@@ -184,19 +182,6 @@ int main()
         energy_sum(p, N_PART, evolution, M);
     }
     printf("Completo evolution = %d\n", evolution);
-
-    for (int i = 0; i < N_THREADS; i++)
-    {
-        rc = pthread_join(threads[i], NULL);
-        if (rc)
-        {
-            printf("ERROR; return code from pthread_join() is %d\n", rc);
-            exit(-1);
-        }
-    }
-
-    // destruir el mutex
-    pthread_mutex_destroy(&mutex);
 
     free(x);
     free(p);
