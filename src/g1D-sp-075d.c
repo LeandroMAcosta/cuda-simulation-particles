@@ -5,6 +5,8 @@
 
 int main()
 {
+    omp_set_num_threads(omp_get_num_procs());
+    
     int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0;
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
@@ -114,7 +116,7 @@ int main()
         // iter_in_range code here:
         long int k;
         int signop;
-#pragma omp parallel shared(x, p) num_threads(N_THREADS)
+#pragma omp parallel shared(x, p)
         {
             unsigned int seed = (unsigned int)(time(NULL) + omp_get_thread_num());
 #pragma omp for private(k, signop) schedule(static)
