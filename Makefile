@@ -4,7 +4,7 @@ CLIBS := -lm -lpthread
 
 TARGET := main
 
-SRC := src/g1D-sp-075d.c
+SRC := src/g1D-sp-075d.c src/utils.c
 OBJ := $(SRC:.c=.o)
 
 all: $(TARGET)
@@ -14,6 +14,9 @@ $(TARGET): $(OBJ)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+format:
+	clang-format -style=Microsoft -i src/*.c include/*.h
 
 clean:
 	rm -f $(TARGET) $(OBJ) graba.dmp hists.eps *.dat
