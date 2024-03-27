@@ -179,9 +179,9 @@ void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double 
                     double ptmp075 = pow((fabs(p_tmp)), 0.75);
                     double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4);
                     pthread_mutex_lock(&mutex);
-                    double random_value = d_rand();
+                    double randomValue = d_rand();
                     pthread_mutex_unlock(&mutex);
-                    p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (random_value - 0.5));
+                    p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                 }
                 p_tmp = (k % 2 ? -1.0 : 1.0) * signop * p_tmp;
             }
