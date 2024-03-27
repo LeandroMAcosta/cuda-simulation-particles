@@ -1,7 +1,8 @@
 #include "../include/utils.h"
 
-double d_rand()
+static double d_rand()
 {
+    srand(time(NULL));
     return (double)rand() / ((double)RAND_MAX + 1);
 }
 
@@ -153,44 +154,6 @@ void save_data(char filename[], double *x, double *p, int evolution, int N_PART)
     fwrite(p, sizeof(p[0]) * N_PART, 1, saveFile);
     fclose(saveFile);
 }
-/*
-void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double M, double alfa, double pmin075,
-                   double pmax075)
-{
-    long int k;
-    int signop;
-    for (int i = s; i < e; i++)
-    {
-        double x_tmp = x[i], p_tmp = p[i];
-        for (int step = 0; step < n; step++)
-        {
-            x_tmp = x_tmp + p_tmp * DT / M;
-            signop = copysign(1.0, p_tmp);
-            k = trunc(x_tmp + 0.5 * signop);
-            if (k != 0)
-            {
-                x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k);
-                if (fabs(x_tmp) > 0.502)
-                {
-                    x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
-                }
-                for (int j = 1; j <= labs(k); j++)
-                {
-                    double ptmp075 = pow((fabs(p_tmp)), 0.75);
-                    double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4);
-                    // pthread_mutex_lock(&mutex);
-                    double randomValue = d_rand();
-                    // pthread_mutex_unlock(&mutex);
-                    p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
-                }
-                p_tmp = (k % 2 ? -1.0 : 1.0) * signop * p_tmp;
-            }
-        }
-        x[i] = x_tmp;
-        p[i] = p_tmp;
-    }
-}
-*/
 
 int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS)
 {
@@ -257,10 +220,3 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
 
     return 0; // avisa que se cumplió la condición sobre los chi2
 }
-
-/*
-static void atomic_increment(int *ptr)
-{
-    __sync_fetch_and_add(ptr, 1);
-}
-*/
