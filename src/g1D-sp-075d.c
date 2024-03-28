@@ -5,8 +5,6 @@
 
 int main()
 {
-    omp_set_num_threads(omp_get_num_procs());
-    
     int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0;
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
@@ -39,7 +37,7 @@ int main()
         double numerator = 6.0E-26 * N_PART;
         double denominator = 5.24684E-24 * sqrt(2.0 * PI);
         double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 1) / 5.24684E-24, 2) / 2;
-        DpE[i] = numerator / denominator * exp(exponent);
+        DpE[i] = (numerator / denominator) * exp(exponent);
     }
 
 #pragma omp parallel for simd
@@ -149,14 +147,17 @@ int main()
                 p[i] = p_tmp;
             }
         }
-        // End of iter_in_range code.
-
+// End of iter_in_range code.
+#pragma omp for schedule(static)
         for (int i = 0; i < N_PART; i++)
         {
             int h_idx = (int)((2.0 * x[i] + 1) * BINS + 2.5);
             int g_idx = (int)((p[i] / 3.0e-23 + 1) * BINS + 0.5);
+#pragma omp atomic
             h[h_idx]++;
+#pragma omp atomic
             g[g_idx]++;
+#pragma omp atomic
             hg[(2 * BINS + 1) * h_idx + g_idx]++;
         }
     }

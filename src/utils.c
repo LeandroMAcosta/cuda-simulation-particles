@@ -57,6 +57,7 @@ void read_data(char filename[], double *x, double *p, int *evolution, int N_PART
 void energy_sum(double *p, int N_PART, int evolution, double M)
 {
     double sumEnergy = 0;
+#pragma omp parallel for reduction(+ : sumEnergy)
     for (int i = 0; i < N_PART; i++)
     {
         sumEnergy += p[i] * p[i];
@@ -161,6 +162,7 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
 
     if (strcmp(filename, "X0000000.dat") == 0)
     {
+#pragma omp parallel for reduction(+ : chi2x)
         for (int i = BINS + 1; i <= 2 * BINS; i++)
         {
             chi2x += pow(h[i] - 2 * DxE[i], 2) / (2 * DxE[i]);
@@ -169,6 +171,7 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
     }
     else
     {
+#pragma omp parallel for reduction(+ : chi2x)
         for (int i = 2; i <= 2 * (BINS + 1); i++)
         {
             chi2x += pow(h[i] - DxE[i], 2) / DxE[i];
@@ -176,15 +179,18 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
         chi2x = chi2x / (2.0 * BINS + 1);
         chi2xr = chi2x; // chi2xr = chi2x reducido
     }
+#pragma omp parallel for reduction(+ : chi2p)
     for (int i = 0; i <= 2 * (BINS - BORDES); i++)
     {
         chi2p += pow(g[i + BORDES] - DpE[i + BORDES], 2) / DpE[i + BORDES];
     }
+#pragma omp parallel for reduction(+ : chiIp, chiPp)
     for (int i = 0; i < (BINS - BORDES); i++)
     {
         chiIp += pow(g[i + BORDES] - g[2 * BINS - BORDES - i], 2) / DpE[i + BORDES];
         chiPp += pow(g[i + BORDES] + g[2 * BINS - BORDES - i] - 2.0 * DpE[i + BORDES], 2) / DpE[i + BORDES];
     }
+#pragma omp parallel for reduction(+ : chiIx, chiPx)
     for (int i = 2; i < BINS + 1; i++)
     {
         chiIx += pow(h[i] - h[2 * BINS + 4 - i], 2) / DxE[i];

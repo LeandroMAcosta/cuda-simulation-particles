@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -O3 -march=native -std=c99
+CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -O3 -march=native -std=c99 -ffast-math
 CLIBS := -lm -lpthread
 OMP := -fopenmp
 
@@ -11,7 +11,7 @@ OBJ := $(SRC:.c=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(CLIBS) $(OMP)
+	$(CC) $(CFLAGS) $(OMP) -o $@ $^ $(CLIBS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(OMP) -c -o $@ $<
