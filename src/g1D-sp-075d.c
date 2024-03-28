@@ -37,7 +37,7 @@ int main()
         double numerator = 6.0E-26 * N_PART;
         double denominator = 5.24684E-24 * sqrt(2.0 * PI);
         double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 1) / 5.24684E-24, 2) / 2;
-        DpE[i] = numerator / denominator * exp(exponent);
+        DpE[i] = (numerator / denominator) * exp(exponent);
     }
 
 #pragma omp parallel for simd
