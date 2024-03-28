@@ -64,18 +64,18 @@ int main()
 // initialize particles
 #pragma omp parallel
             {
-                unsigned int seed = (unsigned int)(time(NULL) + omp_get_thread_num());
+                uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
 #pragma omp for
                 for (int i = 0; i < N_PART; i++)
                 {
-                    double randomValue = (double)rand_r(&seed) / ((double)RAND_MAX + 1);
+                    double randomValue = d_xorshift(&seed);
                     x[i] = randomValue * 0.5;
                 }
 #pragma omp for
                 for (int i = 0; i < N_PART >> 1; i++)
                 {
-                    double randomValue1 = (double)rand_r(&seed) / ((double)RAND_MAX + 1);
-                    double randomValue2 = (double)rand_r(&seed) / ((double)RAND_MAX + 1);
+                    double randomValue1 = d_xorshift(&seed);
+                    double randomValue2 = d_xorshift(&seed);
 
                     xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
                     xi2 = 2.0 * PI * randomValue2;
@@ -116,7 +116,7 @@ int main()
         int signop;
 #pragma omp parallel shared(x, p)
         {
-            unsigned int seed = (unsigned int)(time(NULL) + omp_get_thread_num());
+            uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
 #pragma omp for private(k, signop) schedule(static)
             for (int i = 0; i < N_PART; ++i)
             {
@@ -137,7 +137,7 @@ int main()
                         {
                             double ptmp075 = pow(fabs(p_tmp), 0.75);
                             double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4);
-                            double randomValue = (double)rand_r(&seed) / ((double)RAND_MAX + 1);
+                            double randomValue = d_xorshift(&seed);
                             p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                         }
                         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
