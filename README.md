@@ -28,7 +28,7 @@ make
 Esto generará el ejecutable (`main`) del programa.
 
 ### Ejecución del progama
-Una vez que el programa ha sido compilado correctamente, puedes ejecutarlo siguiendo estos pasosÑ
+Una vez que el programa ha sido compilado correctamente, puedes ejecutarlo siguiendo estos pasos:
 1. Asegúrate de tener el archivo `datos.in` en el mismo directorio que el ejecutable del programa.
 2. Ejecuta el programa previamente compilado:
 ```Bash
