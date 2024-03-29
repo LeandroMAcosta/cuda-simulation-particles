@@ -31,7 +31,7 @@ int main()
     int *g = malloc(sizeof(int) * (2 * BINS + 1));
     int *hg = malloc(sizeof(int) * (2 * BINS + 5) * (2 * BINS + 1));
 
-#pragma omp parallel for reduction(+ : DpE[ : 2 * BINS + 1])
+#pragma omp parallel for reduction(+ : DpE[ : 2 * BINS + 1]) schedule(static)
     for (int i = 0; i <= BINS << 1; i++)
     {
         double numerator = 6.0E-26 * N_PART;
@@ -40,7 +40,7 @@ int main()
         DpE[i] = (numerator / denominator) * exp(exponent);
     }
 
-#pragma omp parallel for simd
+#pragma omp parallel for simd schedule(static)
     for (int i = 0; i <= (BINS + 2) << 1; i++)
     {
         DxE[i] = 1.0E-3 * N_PART;
@@ -65,13 +65,13 @@ int main()
 #pragma omp parallel
             {
                 uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-#pragma omp for
+#pragma omp for schedule(static)
                 for (int i = 0; i < N_PART; i++)
                 {
                     double randomValue = d_xorshift(&seed);
                     x[i] = randomValue * 0.5;
                 }
-#pragma omp for
+#pragma omp for schedule(static)
                 for (int i = 0; i < N_PART >> 1; i++)
                 {
                     double randomValue1 = d_xorshift(&seed);
@@ -85,7 +85,7 @@ int main()
                 }
             }
 
-#pragma omp parallel for
+#pragma omp parallel for schedule(static)
             for (int i = 0; i < N_PART; i++)
             {
                 h[(int)((2.0 * x[i] + 1) * BINS + 2.5)]++;
@@ -117,7 +117,7 @@ int main()
 #pragma omp parallel shared(x, p)
         {
             uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-#pragma omp for private(k, signop) schedule(static)
+#pragma omp for private(k, signop) schedule(dynamic)
             for (int i = 0; i < N_PART; ++i)
             {
                 double x_tmp = x[i], p_tmp = p[i];
