@@ -128,7 +128,7 @@ int main()
                     k = trunc(x_tmp + 0.5 * signop);
                     if (k != 0)
                     {
-                        x_tmp = ((-2.0 * (k % 2)) + 1.0) * (x_tmp - k); // equal to x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k);
+                        x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k);
                         if (fabs(x_tmp) > 0.502)
                         {
                             x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
@@ -140,7 +140,7 @@ int main()
                             double randomValue = d_xorshift(&seed);
                             p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                         }
-                        p_tmp *= ((-2.0 * (k % 2)) + 1.0) * signop; // equal to p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
+                        p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
                     }
                 }
                 x[i] = x_tmp;
