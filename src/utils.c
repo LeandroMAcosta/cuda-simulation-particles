@@ -3,18 +3,7 @@
 static double d_rand()
 {
     srand(time(NULL));
-    return (double)rand() / ((double)RAND_MAX + 1);
-}
-
-// returns a random number between 0 and 1
-uint32_t d_xorshift(uint32_t *state)
-{
-    uint32_t x = *state;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    *state = x;
-    return (double)x / ((double)UINT32_MAX + 1);
+    return (double)rand() / (double)RAND_MAX;
 }
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
