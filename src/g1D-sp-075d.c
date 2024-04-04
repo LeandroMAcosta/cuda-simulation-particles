@@ -1,30 +1,7 @@
-#include <pthread.h>
-#include <time.h>
-
 #include "../include/utils.h"
+#include <omp.h>
 
-// gcc -Wall -Wextra -Werror -std=c99 -pedantic -g -O3 -o g1D-sp-075d
-// g1D-sp-075d.c -lm -lpthread
-
-/*
- gas 1D con p discretos, SIN ruido en L del recipiente + ruido en p al rebotar
-con la pared
-
- a cada E_j le corresponde una Ej' sorteada con una distribución uniforme en
-[Ej-DeltaE/2, Ej+DeltaE/2],
-DeltaE=alfa((p^0.75-pmin^0.75)(pmax^0.75-p^0.75))^4+d
-
- En la distribucion en x permitimos que los bordes no sean filosos: agregamos 2
-canales en cada extremo, redefiniendo los chi2x
-
-NO: Al cabo de un ciclo, antes de grabar el dmp, pasamos el 50% de la energia de
-(14) particulas con |p|>3sigma a 14 particulas con 0.15sigma<|p|<.9sigma
- */
-
-sem_t iter_sem;
-sem_t hist_sem;
-
-pthread_mutex_t mutex;
+/* Compilar usando el Makefile */
 
 int main()
 {
@@ -54,18 +31,16 @@ int main()
     int *g = malloc(sizeof(int) * (2 * BINS + 1));
     int *hg = malloc(sizeof(int) * (2 * BINS + 5) * (2 * BINS + 1));
 
-    // Inicializar el mutex
-    pthread_mutex_init(&mutex, NULL);
-    int rc = 0;
-
-    srand(time(NULL));
-
+#pragma omp parallel for reduction(+ : DpE[ : 2 * BINS + 1]) schedule(static)
     for (int i = 0; i <= BINS << 1; i++)
     {
-        DpE[i] = 6.0E-26 * N_PART / (5.24684E-24 * sqrt(2.0 * PI)) *
-                 exp(-pow(3.0e-23 * (1.0 * i / BINS - 1) / 5.24684E-24, 2) / 2);
+        double numerator = 6.0E-26 * N_PART;
+        double denominator = 5.24684E-24 * sqrt(2.0 * PI);
+        double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 1) / 5.24684E-24, 2) / 2;
+        DpE[i] = (numerator / denominator) * exp(exponent);
     }
 
+#pragma omp parallel for simd schedule(static)
     for (int i = 0; i <= (BINS + 2) << 1; i++)
     {
         DxE[i] = 1.0E-3 * N_PART;
@@ -86,31 +61,42 @@ int main()
     {
         while (X0 == 1)
         {
-            // initialize particles
-            for (int i = 0; i < N_PART; i++)
+// initialize particles
+#pragma omp parallel
             {
-                x[i] = d_rand() * 0.5;
+                uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
+#pragma omp for schedule(static)
+                for (int i = 0; i < N_PART; i++)
+                {
+                    double randomValue = d_xorshift(&seed);
+                    x[i] = randomValue * 0.5;
+                }
+#pragma omp for schedule(static)
+                for (int i = 0; i < N_PART >> 1; i++)
+                {
+                    double randomValue1 = d_xorshift(&seed);
+                    double randomValue2 = d_xorshift(&seed);
+
+                    xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
+                    xi2 = 2.0 * PI * randomValue2;
+
+                    p[2 * i] = xi1 * cos(xi2) * 5.24684E-24;
+                    p[2 * i + 1] = xi1 * sin(xi2) * 5.24684E-24;
+                }
             }
-            for (int i = 0; i < N_PART >> 1; i++)
-            {
-                xi1 = sqrt(-2.0 * log(d_rand() + 1E-35));
-                xi2 = 2.0 * PI * d_rand();
-                p[2 * i] = xi1 * cos(xi2) * 5.24684E-24;
-                p[2 * i + 1] = xi1 * sin(xi2) * 5.24684E-24;
-            }
+
+#pragma omp parallel for schedule(static)
             for (int i = 0; i < N_PART; i++)
             {
                 h[(int)((2.0 * x[i] + 1) * BINS + 2.5)]++;
                 g[(int)((p[i] / 3.0e-23 + 1) * BINS + 0.5)]++;
-            }
-            for (int i = 0; i < N_PART; i++)
-            {
                 hg[(2 * BINS + 1) * (int)((2.0 * x[i] + 1) * BINS + 2.5) + (int)((p[i] / 3e-23 + 1) * BINS + 0.5)]++;
             }
+
             X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS);
             if (X0 == 1)
             {
-                printf("falló algún chi2:   X0 =%1d\n", X0);
+                printf("Falló algún chi2: X0=%1d\n", X0);
             }
         }
     }
@@ -122,50 +108,60 @@ int main()
     energy_sum(p, N_PART, evolution, M);
     printf("d=%12.9E  alfa=%12.9E\n", d, alfa);
 
-    sem_init(&iter_sem, 0, 0);
-    sem_init(&hist_sem, 0, 0);
-
-    // create threads
-    pthread_t threads[N_THREADS]; // indentificadores de c/hilo (tipo específico
-                                  // pthread_t)
-    range_t args[N_THREADS];      // c/hilo se encarga de un grupo de partículas
-    for (int i = 0; i < N_THREADS; i++)
+    // Work code here:
+    for (unsigned int j = 0; j < Ntandas; j++)
     {
-        args[i] = (range_t){.s = (N_PART / N_THREADS) * i,
-                            .e = (N_PART / N_THREADS) * (i + 1),
-                            .xx = x,
-                            .pp = p,
-                            .hh = h,
-                            .gg = g,
-                            .hghg = hg,
-                            .Ntandas = Ntandas,
-                            .steps = steps,
-                            .BINS = BINS,
-                            .DT = DT,
-                            .M = M,
-                            .alfa = alfa,
-                            .pmin075 = pmin075,
-                            .pmax075 = pmax075};
-        rc = pthread_create(&threads[i], NULL, work, &args[i]);
-        if (rc)
+        // iter_in_range code here:
+        long int k;
+        int signop;
+#pragma omp parallel shared(x, p)
         {
-            printf("ERROR; return code from pthread_create() is %d\n", rc);
-            exit(-1);
+            uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
+#pragma omp for private(k, signop) schedule(dynamic)
+            for (int i = 0; i < N_PART; ++i)
+            {
+                double x_tmp = x[i], p_tmp = p[i];
+                for (int step = 0; step < steps[j]; step++)
+                {
+                    x_tmp += p_tmp * DT / M;
+                    signop = copysign(1.0, p_tmp);
+                    k = trunc(x_tmp + 0.5 * signop);
+                    if (k != 0)
+                    {
+                        x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k);
+                        if (fabs(x_tmp) > 0.502)
+                        {
+                            x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
+                        }
+                        for (int l = 1; l <= labs(k); l++)
+                        {
+                            double ptmp075 = pow(fabs(p_tmp), 0.75);
+                            double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4);
+                            double randomValue = d_xorshift(&seed);
+                            p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
+                        }
+                        p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
+                    }
+                }
+                x[i] = x_tmp;
+                p[i] = p_tmp;
+            }
         }
-    }
+// End of iter_in_range code.
+#pragma omp for schedule(static)
+        for (int i = 0; i < N_PART; i++)
+        {
+            int h_idx = (int)((2.0 * x[i] + 1) * BINS + 2.5);
+            int g_idx = (int)((p[i] / 3.0e-23 + 1) * BINS + 0.5);
+#pragma omp atomic
+            h[h_idx]++;
+#pragma omp atomic
+            g[g_idx]++;
+#pragma omp atomic
+            hg[(2 * BINS + 1) * h_idx + g_idx]++;
+        }
 
-    for (unsigned int i = 0; i < Ntandas; i++)
-    {
-        for (int i = 0; i < N_THREADS; i++)
-        {
-            sem_post(&iter_sem);
-        }
-        for (int i = 0; i < N_THREADS; i++)
-        {
-            sem_wait(&hist_sem);
-        }
-
-        evolution += steps[i];
+        evolution += steps[j];
         if (evolution < 10000000)
         {
             sprintf(filename, "X%07d.dat", evolution);
@@ -183,20 +179,9 @@ int main()
         make_hist(h, g, hg, DxE, DpE, filename, BINS);
         energy_sum(p, N_PART, evolution, M);
     }
+    // End of Work code.
+    
     printf("Completo evolution = %d\n", evolution);
-
-    for (int i = 0; i < N_THREADS; i++)
-    {
-        rc = pthread_join(threads[i], NULL);
-        if (rc)
-        {
-            printf("ERROR; return code from pthread_join() is %d\n", rc);
-            exit(-1);
-        }
-    }
-
-    // destruir el mutex
-    pthread_mutex_destroy(&mutex);
 
     free(x);
     free(p);

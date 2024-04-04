@@ -1,38 +1,23 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include "constants.h"
 #include <math.h>
-#include <pthread.h>
-#include <semaphore.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
-#define BORDES 237 // para NPART = 2^21 (+ 100 cuentas)
-#define PI 3.14159265358979323846
-#define epsmax2M 9.0E-46 // E maxima
-#define DEmax2M                                                                                                        \
-    6.0e-50              // mas grande para pmax (3.5964e-48: 1 canal de p menos que el max)
-                         // // OJO: ahora DEmax2M nos da 1.2e-50 (8/2/24) 6.296208e-49 //
-                         // 2*5.24684E-24*6.0e-26
-#define epsmin2M 9.0E-52 // 2m * E minima = pmin^2
-
-extern sem_t iter_sem, hist_sem; // semaphore
-
-extern pthread_mutex_t mutex; // mutex
-
-typedef struct
+inline double d_xorshift(uint32_t *state)
 {
-    int s, e;
-    double *xx, *pp;
-    int *hh, *gg, *hghg;
-    unsigned int Ntandas;
-    int *steps;
-    int BINS;
-    double DT, M, alfa, pmin075, pmax075;
-} range_t;
-
-double d_rand();
+    uint32_t x = *state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *state = x;
+    return (double)x / (double)UINT32_MAX;
+}
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
@@ -44,12 +29,6 @@ void save_data(char filename[], double *x, double *p, int evolution, int N_PART)
 
 void energy_sum(double *p, int N_PART, int evolution, double M);
 
-// avanza n pasos en el rango de partículas [s, e)
-void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double M, double alfa, double pmin075,
-                   double pmax075);
-
 int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS);
-
-void *work(void *range);
 
 #endif

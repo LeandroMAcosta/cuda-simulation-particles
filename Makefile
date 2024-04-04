@@ -1,6 +1,7 @@
 CC := gcc
-CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -O3 -march=native -std=c99
+CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -O3 -march=native -ffast-math -g
 CLIBS := -lm -lpthread
+OMP := -fopenmp
 
 TARGET := main
 
@@ -10,13 +11,13 @@ OBJ := $(SRC:.c=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $@ $^ $(CLIBS)
+	$(CC) $(CFLAGS) $(OMP) -o $@ $^ $(CLIBS)
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) $(OMP) -c -o $@ $<
 
 format:
 	clang-format -style=Microsoft -i src/*.c include/*.h
 
 clean:
-	rm -f $(TARGET) $(OBJ) graba.dmp hists.eps *.dat
+	rm -f $(TARGET) $(OBJ) graba.dmp *.dat

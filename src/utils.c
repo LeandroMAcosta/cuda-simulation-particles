@@ -1,8 +1,9 @@
 #include "../include/utils.h"
 
-double d_rand()
+static double d_rand()
 {
-    return (double)rand() / ((double)RAND_MAX + 1);
+    srand(time(NULL));
+    return (double)rand() / (double)RAND_MAX;
 }
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
@@ -56,6 +57,7 @@ void read_data(char filename[], double *x, double *p, int *evolution, int N_PART
 void energy_sum(double *p, int N_PART, int evolution, double M)
 {
     double sumEnergy = 0;
+#pragma omp parallel for reduction(+ : sumEnergy) schedule(static)
     for (int i = 0; i < N_PART; i++)
     {
         sumEnergy += p[i] * p[i];
@@ -154,49 +156,13 @@ void save_data(char filename[], double *x, double *p, int evolution, int N_PART)
     fclose(saveFile);
 }
 
-void iter_in_range(int n, int s, int e, double *x, double *p, double DT, double M, double alfa, double pmin075,
-                   double pmax075)
-{
-    long int k;
-    int signop;
-    for (int i = s; i < e; i++)
-    {
-        double x_tmp = x[i], p_tmp = p[i];
-        for (int step = 0; step < n; step++)
-        {
-            x_tmp = x_tmp + p_tmp * DT / M;
-            signop = copysign(1.0, p_tmp);
-            k = trunc(x_tmp + 0.5 * signop);
-            if (k != 0)
-            {
-                x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k);
-                if (fabs(x_tmp) > 0.502)
-                {
-                    x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
-                }
-                for (int j = 1; j <= labs(k); j++)
-                {
-                    double ptmp075 = pow((fabs(p_tmp)), 0.75);
-                    double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4);
-                    pthread_mutex_lock(&mutex);
-                    double randomValue = d_rand();
-                    pthread_mutex_unlock(&mutex);
-                    p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
-                }
-                p_tmp = (k % 2 ? -1.0 : 1.0) * signop * p_tmp;
-            }
-        }
-        x[i] = x_tmp;
-        p[i] = p_tmp;
-    }
-}
-
 int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS)
 {
     double chi2x = 0.0, chi2xr = 0.0, chi2p = 0.0, chiIp = 0.0, chiPp = 0.0, chiIx = 0.0, chiPx = 0.0;
 
     if (strcmp(filename, "X0000000.dat") == 0)
     {
+#pragma omp parallel for reduction(+ : chi2x) schedule(static)
         for (int i = BINS + 1; i <= 2 * BINS; i++)
         {
             chi2x += pow(h[i] - 2 * DxE[i], 2) / (2 * DxE[i]);
@@ -205,6 +171,7 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
     }
     else
     {
+#pragma omp parallel for reduction(+ : chi2x) schedule(static)
         for (int i = 2; i <= 2 * (BINS + 1); i++)
         {
             chi2x += pow(h[i] - DxE[i], 2) / DxE[i];
@@ -212,15 +179,18 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
         chi2x = chi2x / (2.0 * BINS + 1);
         chi2xr = chi2x; // chi2xr = chi2x reducido
     }
+#pragma omp parallel for reduction(+ : chi2p) schedule(static)
     for (int i = 0; i <= 2 * (BINS - BORDES); i++)
     {
         chi2p += pow(g[i + BORDES] - DpE[i + BORDES], 2) / DpE[i + BORDES];
     }
+#pragma omp parallel for reduction(+ : chiIp, chiPp) schedule(static)
     for (int i = 0; i < (BINS - BORDES); i++)
     {
         chiIp += pow(g[i + BORDES] - g[2 * BINS - BORDES - i], 2) / DpE[i + BORDES];
         chiPp += pow(g[i + BORDES] + g[2 * BINS - BORDES - i] - 2.0 * DpE[i + BORDES], 2) / DpE[i + BORDES];
     }
+#pragma omp parallel for reduction(+ : chiIx, chiPx) schedule(static)
     for (int i = 2; i < BINS + 1; i++)
     {
         chiIx += pow(h[i] - h[2 * BINS + 4 - i], 2) / DxE[i];
@@ -255,47 +225,4 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
     memset(hg, 0, (2 * BINS + 5) * (2 * BINS + 1) * sizeof(int));
 
     return 0; // avisa que se cumplió la condición sobre los chi2
-}
-
-static void atomic_increment(int *ptr)
-{
-    __sync_fetch_and_add(ptr, 1);
-}
-
-void *work(void *range)
-{
-    int s = ((range_t *)range)->s;
-    int e = ((range_t *)range)->e;
-    double *x = ((range_t *)range)->xx;
-    double *p = ((range_t *)range)->pp;
-    int *h = ((range_t *)range)->hh;
-    int *g = ((range_t *)range)->gg;
-    int *hg = ((range_t *)range)->hghg;
-    unsigned int Ntandas = ((range_t *)range)->Ntandas;
-    int *steps = ((range_t *)range)->steps;
-    int BINS = ((range_t *)range)->BINS;
-    double DT = ((range_t *)range)->DT;
-    double M = ((range_t *)range)->M;
-    double alfa = ((range_t *)range)->alfa;
-    double pmin075 = ((range_t *)range)->pmin075;
-    double pmax075 = ((range_t *)range)->pmax075;
-    for (unsigned int j = 0; j < Ntandas; j++)
-    {
-        sem_wait(&iter_sem); // semaforo que señala que un hilo queda reservado
-                             // para ejecución
-
-        iter_in_range(steps[j], s, e, x, p, DT, M, alfa, pmin075,
-                      pmax075); // avanza steps[j] pasos en el rango de partículas [s, e)
-
-        for (int i = s; i < e; i++)
-        {
-            int h_idx = (2.0 * x[i] + 1) * BINS + 2.5;
-            int g_idx = (p[i] / 3.0e-23 + 1) * BINS + 0.5;
-            atomic_increment(h + h_idx);                           // incrementa el casillero h_idx de h
-            atomic_increment(g + g_idx);                           // incrementa el casillero g_idx de g
-            atomic_increment(hg + (2 * BINS + 1) * h_idx + g_idx); // incrementa el casillero de hg
-        }
-        sem_post(&hist_sem); // semaforo que lo libera
-    }
-    return NULL;
 }
