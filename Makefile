@@ -20,4 +20,4 @@ format:
 	clang-format -style=Microsoft -i src/*.c include/*.h
 
 clean:
-	rm -f $(TARGET) $(OBJ) graba.dmp hists.eps *.dat
+	rm -f $(TARGET) $(OBJ) graba.dmp *.dat

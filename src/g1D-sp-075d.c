@@ -160,12 +160,8 @@ int main()
 #pragma omp atomic
             hg[(2 * BINS + 1) * h_idx + g_idx]++;
         }
-    }
-    // End of Work code.
 
-    for (unsigned int i = 0; i < Ntandas; i++)
-    {
-        evolution += steps[i];
+        evolution += steps[j];
         if (evolution < 10000000)
         {
             sprintf(filename, "X%07d.dat", evolution);
@@ -183,6 +179,8 @@ int main()
         make_hist(h, g, hg, DxE, DpE, filename, BINS);
         energy_sum(p, N_PART, evolution, M);
     }
+    // End of Work code.
+    
     printf("Completo evolution = %d\n", evolution);
 
     free(x);
