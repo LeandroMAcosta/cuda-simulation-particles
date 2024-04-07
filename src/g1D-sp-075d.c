@@ -88,9 +88,12 @@ int main()
 #pragma omp parallel for schedule(static)
             for (int i = 0; i < N_PART; i++)
             {
-                h[(int)((2.0 * x[i] + 1) * BINS + 2.5)]++;
-                g[(int)((p[i] / 3.0e-23 + 1) * BINS + 0.5)]++;
-                hg[(2 * BINS + 1) * (int)((2.0 * x[i] + 1) * BINS + 2.5) + (int)((p[i] / 3e-23 + 1) * BINS + 0.5)]++;
+                int h_idx = floor((2.0 * x[i] + 1) * BINS + 2.5);
+                int g_idx = floor((p[i] / 3.0e-23 + 1) * BINS + 0.5);
+                int hg_idx = (2 * BINS + 1) * h_idx + g_idx;
+                h[h_idx]++;
+                g[g_idx]++;
+                hg[hg_idx]++;
             }
 
             X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS);
@@ -108,10 +111,8 @@ int main()
     energy_sum(p, N_PART, evolution, M);
     printf("d=%12.9E  alfa=%12.9E\n", d, alfa);
 
-    // Work code here:
     for (unsigned int j = 0; j < Ntandas; j++)
     {
-        // iter_in_range code here:
         long int k;
         int signop;
 #pragma omp parallel shared(x, p)
@@ -147,18 +148,16 @@ int main()
                 p[i] = p_tmp;
             }
         }
-// End of iter_in_range code.
+
 #pragma omp for schedule(static)
         for (int i = 0; i < N_PART; i++)
         {
-            int h_idx = (int)((2.0 * x[i] + 1) * BINS + 2.5);
-            int g_idx = (int)((p[i] / 3.0e-23 + 1) * BINS + 0.5);
-#pragma omp atomic
+            int h_idx = floor((2.0 * x[i] + 1) * BINS + 2.5);
+            int g_idx = floor((p[i] / 3.0e-23 + 1) * BINS + 0.5);
+            int hg_idx = (2 * BINS + 1) * h_idx + g_idx;
             h[h_idx]++;
-#pragma omp atomic
             g[g_idx]++;
-#pragma omp atomic
-            hg[(2 * BINS + 1) * h_idx + g_idx]++;
+            hg[hg_idx]++;
         }
 
         evolution += steps[j];
