@@ -1,6 +1,6 @@
 CC := gcc
-CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -O3 -march=native -ffast-math -ftree-vectorizer-verbose=1 -fopt-info-vec-missed
-CLIBS := -lm -lpthread
+CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -O3 -march=native -ffast-math
+CLIBS := -lm
 OMP := -fopenmp
 
 TARGET := main
