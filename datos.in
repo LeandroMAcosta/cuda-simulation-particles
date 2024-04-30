@@ -7,7 +7,7 @@ Nº de hilos para la corrida (N_THREADS): 32
 Tandas (nº de pasos) para esta corrida (steps):
    1000000
 #   +1M              +3M                    +6M                             +10M
-      Retomar desde un archivo anterior: sí retoma.dmp
+      Retomar desde un archivo anterior: sí retoma2.dmp
           Volcar los datos a un archivo: sí graba.dmp
             Incertidumbre para L (en m): 0.001
 

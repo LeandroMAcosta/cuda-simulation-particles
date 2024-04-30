@@ -14,9 +14,9 @@ int main()
     int X0 = 1;
     char filename[32];
 
-    double d = 1.0e-72, alfa = 4.0E-88;
+    double d = 1.0e-72, alfa = 1.4E+42;
     int evolution = 0;
-    double pmin075 = 7.20843424240426E-020, pmax075 = 1.2818610191887E-017;
+    double pmin = 3.0E-026, pmax = 3.0E-023;
 
     char data_filename[] = "datos.in";
 
@@ -129,16 +129,22 @@ int main()
                     k = trunc(x_tmp + 0.5 * signop);
                     if (k != 0)
                     {
-                        x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k);
+                        double randomValue = d_xorshift(&seed);
+                        double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
+                        randomValue = d_xorshift(&seed);
+                        double xi2 = 2.0 * PI * randomValue;
+                        double deltaX = sqrt(labs(k)) * xi1 * cos(xi2) * sigmaL;
+                        deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
+                        x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
                         if (fabs(x_tmp) > 0.502)
                         {
                             x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
                         }
                         for (int l = 1; l <= labs(k); l++)
                         {
-                            double ptmp075 = pow(fabs(p_tmp), 0.75);
-                            double DeltaE = alfa * pow((ptmp075 - pmin075) * (pmax075 - ptmp075), 4);
-                            double randomValue = d_xorshift(&seed);
+                            // double ptmp075 = pow(fabs(p_tmp), 0.75);
+                            double DeltaE = alfa * pow((p_tmp - pmin) * (pmax - p_tmp), 2);
+                            randomValue = d_xorshift(&seed);
                             p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                         }
                         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
