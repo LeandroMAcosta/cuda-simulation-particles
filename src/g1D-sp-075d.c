@@ -31,6 +31,12 @@ int main()
     int *g = malloc(sizeof(int) * (2 * BINS + 1));
     int *hg = malloc(sizeof(int) * (2 * BINS + 5) * (2 * BINS + 1));
 
+    bool memory_allocations = check_memory_allocations(x, p, DxE, DpE, h, g, hg);
+    if (!memory_allocations)
+    {
+        return 1;
+    }
+
 #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS + 1]) schedule(static)
     for (int i = 0; i <= BINS << 1; i++)
     {
@@ -179,7 +185,7 @@ int main()
         energy_sum(p, N_PART, evolution, M);
     }
     // End of Work code.
-    
+
     printf("Completo evolution = %d\n", evolution);
 
     free(x);

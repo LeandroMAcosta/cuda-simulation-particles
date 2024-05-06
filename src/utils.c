@@ -226,3 +226,65 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
 
     return 0; // avisa que se cumplió la condición sobre los chi2
 }
+
+bool check_memory_allocations(double *x, double *p, double *DxE, double *DpE, int *h, int *g, int *hg)
+{
+    bool result = true;
+    if (x == NULL)
+    {
+        printf("Error: No se pudo reservar memoria para x\n");
+        result = false;
+    }
+    if (p == NULL)
+    {
+        free(x);
+        printf("Error: No se pudo reservar memoria para p\n");
+        result = false;
+    }
+    if (DxE == NULL)
+    {
+        free(x);
+        free(p);
+        printf("Error: No se pudo reservar memoria para DxE\n");
+        result = false;
+    }
+    if (DpE == NULL)
+    {
+        free(x);
+        free(p);
+        free(DxE);
+        printf("Error: No se pudo reservar memoria para DpE\n");
+        result = false;
+    }
+    if (h == NULL)
+    {
+        free(x);
+        free(p);
+        free(DxE);
+        free(DpE);
+        printf("Error: No se pudo reservar memoria para h\n");
+        result = false;
+    }
+    if (g == NULL)
+    {
+        free(x);
+        free(p);
+        free(DxE);
+        free(DpE);
+        free(h);
+        printf("Error: No se pudo reservar memoria para g\n");
+        result = false;
+    }
+    if (hg == NULL)
+    {
+        free(x);
+        free(p);
+        free(DxE);
+        free(DpE);
+        free(h);
+        free(g);
+        printf("Error: No se pudo reservar memoria para hg\n");
+        result = false;
+    }
+    return result;
+}
