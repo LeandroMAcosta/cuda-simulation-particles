@@ -14,10 +14,10 @@ int main()
     int X0 = 1;
     char filename[32];
 
-    double d = 1.0e-72, alfa = 1.4E+43; // Modifique alfa
+    double d = 1.0e-72, alfa = 1.5E+42; // alfa = 1.4E+43
     int evolution = 0;
-    // double pmin075 = 7.20843424240426E-020, pmax075 = 1.2818610191887E-017;
-    double pmin = 3.0E-026, pmax = 3.0E-023; // Agregue esto
+    //    double pmin075 = 7.20843424240426E-020, pmax075 = 1.2818610191887E-017;
+    double pmin = 3.0E-026, pmax = 3.0E-023;
 
     char data_filename[] = "datos.in";
 
@@ -99,7 +99,6 @@ int main()
                 int g_idx = floor((p[i] / 3.0e-23 + 1) * BINS + 0.5);
                 int hg_idx = (2 * BINS + 1) * h_idx + g_idx;
 
-                // Agregue esto
                 if ((hg_idx > (2 * BINS) * (2 * BINS + 4)) || (hg_idx < 0))
                 {
                     printf("Error en el índice: hg_idx=%d\n", hg_idx);
@@ -139,7 +138,7 @@ int main()
                 double p_tmp = p[i];
                 for (int step = 0; step < steps[j]; step++)
                 {
-                    x_tmp += p_tmp * DT / M;
+                    x_tmp += p_tmp * DT / M;    // ¡OJO que p_tmp tiene un SIGNO!
                     signop = copysign(1.0, p_tmp);
                     k = trunc(x_tmp + 0.5 * signop);
                     if (k != 0)
@@ -155,9 +154,9 @@ int main()
                         {
                             x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
                         }
+                        p_tmp = fabs(p_tmp);    // <-- le saco el signo a p_tmp
                         for (int l = 1; l <= labs(k); l++)
                         {
-                            // double ptmp075 = pow(fabs(p_tmp), 0.75);
                             double DeltaE = alfa * pow((p_tmp - pmin) * (pmax - p_tmp), 2);
                             randomValue = d_xorshift(&seed);
                             p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
