@@ -3,6 +3,7 @@
 
 #include "constants.h"
 #include <math.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,5 +31,7 @@ void save_data(char filename[], double *x, double *p, int evolution, int N_PART)
 void energy_sum(double *p, int N_PART, int evolution, double M);
 
 int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS);
+
+bool check_memory_allocations(double *x, double *p, double *DxE, double *DpE, int *h, int *g, int *hg);
 
 #endif
