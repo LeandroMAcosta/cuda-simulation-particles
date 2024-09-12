@@ -25,6 +25,48 @@ void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, doubl
     }
 }
 
+// Function to initialize particles
+void initialize_particles(int N_PART, double* x, double* p) {
+    #pragma omp parallel
+    {
+        uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
+
+        #pragma omp for schedule(static)
+        for (int i = 0; i < N_PART; i++) {
+            x[i] = d_xorshift(&seed) * 0.5;
+        }
+
+        #pragma omp for schedule(static)
+        for (int i = 0; i < N_PART >> 1; i++) {
+            double randomValue1 = d_xorshift(&seed);
+            double randomValue2 = d_xorshift(&seed);
+            double xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
+            double xi2 = 2.0 * PI * randomValue2;
+
+            p[2 * i] = xi1 * cos(xi2) * 5.24684E-24;
+            p[2 * i + 1] = xi1 * sin(xi2) * 5.24684E-24;
+        }
+    }
+}
+
+// Function to update histograms with particle data
+void update_histograms(int N_PART, int BINS, double* x, double* p, int* h, int* g, int* hg) {
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < N_PART; i++) {
+        int h_idx = floor((2.0 * x[i] + 1) * BINS + 2.5);
+        int g_idx = floor((p[i] / 3.0e-23 + 1) * BINS + 0.5);
+        int hg_idx = (2 * BINS + 1) * h_idx + g_idx;
+
+        if (hg_idx > (2 * BINS) * (2 * BINS + 4) || hg_idx < 0) {
+            printf("Error en el índice: hg_idx=%d\n", hg_idx);
+        }
+
+        h[h_idx]++;
+        g[g_idx]++;
+        hg[hg_idx]++;
+    }
+}
+
 
 int main()
 {
@@ -34,8 +76,6 @@ int main()
     char inputFilename[255], saveFilename[255];
     double DT = 0.0, M = 0.0, sigmaL = 0.0;
 
-    double xi1 = 0.0, xi2 = 0.0;
-    int X0 = 1;
     char filename[32];
 
     double d = 1.0e-72, alfa = 1.5E+42; // alfa = 1.4E+43
@@ -68,67 +108,20 @@ int main()
 
 
     // ============= Initialize particles arrays =============
-    if (retake != 0)
-    {
-        while (X0 == 1)
-        {
-            // Initialize particle positions (x) and momenta (p)
-            #pragma omp parallel
-            {
-                uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-                
-                #pragma omp for schedule(static)
-                for (int i = 0; i < N_PART; i++)
-                {
-                    double randomValue = d_xorshift(&seed);
-                    x[i] = randomValue * 0.5;
-                }
-
-                #pragma omp for schedule(static)
-                for (int i = 0; i < N_PART >> 1; i++)
-                {
-                    double randomValue1 = d_xorshift(&seed);
-                    double randomValue2 = d_xorshift(&seed);
-
-                    xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
-                    xi2 = 2.0 * PI * randomValue2;
-
-                    p[2 * i] = xi1 * cos(xi2) * 5.24684E-24;
-                    p[2 * i + 1] = xi1 * sin(xi2) * 5.24684E-24;
-                }
-            }
-
-            // ============= Update histograms for current particles =============
-            #pragma omp parallel for schedule(static)
-            for (int i = 0; i < N_PART; i++)
-            {
-                int h_idx = floor((2.0 * x[i] + 1) * BINS + 2.5);
-                int g_idx = floor((p[i] / 3.0e-23 + 1) * BINS + 0.5);
-                int hg_idx = (2 * BINS + 1) * h_idx + g_idx;
-
-                if ((hg_idx > (2 * BINS) * (2 * BINS + 4)) || (hg_idx < 0))
-                {
-                    printf("Error en el índice: hg_idx=%d\n", hg_idx);
-                }
-
-                h[h_idx]++;
-                g[g_idx]++;
-                hg[hg_idx]++;
-            }
-
-            // Check histograms
-            X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS);
-            if (X0 == 1)
-            {
-                printf("Falló algún chi2: X0=%1d\n", X0);
-            }
+    if (retake != 0) {
+        while (true) {
+            initialize_particles(N_PART, x, p);
+            update_histograms(N_PART, BINS, x, p, h, g, hg);
+            int X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS);
+            if (X0 != 1) break;
+            printf("Falló algún chi2: X0=%1d\n", X0);
         }
     } else {
-        // Read data if retake is 0
         read_data(inputFilename, x, p, &evolution, N_PART);
     }
 
 
+    // Run the main simulation
     energy_sum(p, N_PART, evolution, M);
     printf("d=%12.9E  alfa=%12.9E\n", d, alfa);
 
