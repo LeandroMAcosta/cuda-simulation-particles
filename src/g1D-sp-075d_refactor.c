@@ -44,7 +44,7 @@ void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, doubl
 }
 
 // Function to initialize particles
-void initialize_particles(int N_PART, double* x, double* p, int BINS) {
+void initialize_particles(int N_PART, double* x, double* p) {
     #pragma omp parallel
     {
         uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
@@ -86,7 +86,7 @@ void update_histograms(int N_PART, int BINS, double* x, double* p, int* h, int* 
 }
 
 // Function to run the main simulation steps
-void run_simulation(int N_PART, double DT, double M, int* steps, unsigned int Ntandas, int BINS, double* x, double* p) {
+void run_simulation(int N_PART, double DT, double M, int* steps, unsigned int Ntandas, double* x, double* p) {
     for (unsigned int j = 0; j < Ntandas; j++) {
         #pragma omp parallel shared(x, p)
         {
@@ -119,7 +119,8 @@ void run_simulation(int N_PART, double DT, double M, int* steps, unsigned int Nt
 
 int main() {
     // Declare variables for configuration and simulation
-    int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0;
+    int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0, evolution = 0;
+
     unsigned int Ntandas = 0u;
     double DT = 0.0, M = 0.0, sigmaL = 0.0;
     char inputFilename[255], saveFilename[255];
@@ -139,7 +140,7 @@ int main() {
     
     if (retake != 0) {
         while (true) {
-            initialize_particles(N_PART, x, p, BINS);
+            initialize_particles(N_PART, x, p);
             update_histograms(N_PART, BINS, x, p, h, g, hg);
             int X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS);
             if (X0 != 1) break;
@@ -150,7 +151,7 @@ int main() {
     }
 
     // Run the main simulation
-    run_simulation(N_PART, DT, M, steps, Ntandas, BINS, x, p);
+    run_simulation(N_PART, DT, M, steps, Ntandas, x, p);
 
     // Free allocated memory
     free(x); free(p); free(DxE); free(DpE); free(h); free(g); free(hg);
