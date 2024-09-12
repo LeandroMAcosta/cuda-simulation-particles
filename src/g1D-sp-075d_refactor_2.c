@@ -2,6 +2,20 @@
 #include <omp.h>
 
 
+// Function to allocate memory for simulation arrays
+bool allocate_memory(int N_PART, int BINS, double** x, double** p, double** DxE, double** DpE, int** h, int** g, int** hg) {
+    *x = malloc(sizeof(double) * N_PART);
+    *p = malloc(sizeof(double) * N_PART);
+    *DxE = malloc(sizeof(double) * (2 * BINS + 5));
+    *DpE = malloc(sizeof(double) * (2 * BINS + 1));
+    *h = malloc(sizeof(int) * (2 * BINS + 5));
+    *g = malloc(sizeof(int) * (2 * BINS + 1));
+    *hg = malloc(sizeof(int) * (2 * BINS + 5) * (2 * BINS + 1));
+
+    return (*x && *p && *DxE && *DpE && *h && *g && *hg);
+}
+
+
 // Function to initialize histograms
 void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, double* DpE, int N_PART) {
     #pragma omp parallel for simd schedule(static)
@@ -68,60 +82,14 @@ void update_histograms(int N_PART, int BINS, double* x, double* p, int* h, int* 
 }
 
 
-int main()
-{
-    // ============= Initialize variables =============
-    int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0;
-    unsigned int Ntandas = 0u;
-    char inputFilename[255], saveFilename[255];
-    double DT = 0.0, M = 0.0, sigmaL = 0.0;
+void run_simulation(int N_PART, double DT, double M, int* steps, unsigned int Ntandas, double* x, double* p, 
+                    double* DxE, double* DpE, int* h, int* g, int* hg, int BINS, char* saveFilename, int dump, double sigmaL, int evolution) {
 
-    char filename[32];
-
-    double d = 1.0e-72, alfa = 1.5E+42; // alfa = 1.4E+43
-    int evolution = 0;
+    // Initialize the necessary variables
+    double d = 1.0e-72, alfa = 1.5E+42;
     double pmin = 3.0E-026, pmax = 3.0E-023;
 
-    char data_filename[] = "datos.in";
-
-    load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
-                              saveFilename, &retake, &dump, &sigmaL);
-
-    // ============= Allocate memory =============
-    double *x = malloc(sizeof(double) * N_PART);              // Particle positions
-    double *p = malloc(sizeof(double) * N_PART);              // Particle momenta
-    double *DxE = malloc(sizeof(double) * (2 * BINS + 5));    // Distribution of positions
-    double *DpE = malloc(sizeof(double) * (2 * BINS + 1));    // Distribution of momenta
-    int *h = malloc(sizeof(int) * (2 * BINS + 5));            // Histogram of positions
-    int *g = malloc(sizeof(int) * (2 * BINS + 1));            // Histogram of momenta
-    int *hg = malloc(sizeof(int) * (2 * BINS + 5) * (2 * BINS + 1)); // 2D histogram of positions and momenta
-
-    // Check if memory allocations were successful
-    bool memory_allocations = check_memory_allocations(x, p, DxE, DpE, h, g, hg);
-    if (!memory_allocations)
-    {
-        return 1;
-    }
-
-    // Initialize histograms and particle arrays
-    initialize_histograms(BINS, h, g, hg, DxE, DpE, N_PART);
-
-
-    // ============= Initialize particles arrays =============
-    if (retake != 0) {
-        while (true) {
-            initialize_particles(N_PART, x, p);
-            update_histograms(N_PART, BINS, x, p, h, g, hg);
-            int X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS);
-            if (X0 != 1) break;
-            printf("Falló algún chi2: X0=%1d\n", X0);
-        }
-    } else {
-        read_data(inputFilename, x, p, &evolution, N_PART);
-    }
-
-
-    // Run the main simulation
+    // Sum energy before starting the simulation
     energy_sum(p, N_PART, evolution, M);
     printf("d=%12.9E  alfa=%12.9E\n", d, alfa);
 
@@ -139,48 +107,58 @@ int main()
                 double p_tmp = p[i];
                 
                 for (int step = 0; step < steps[j]; step++) {
-                    x_tmp += p_tmp * DT / M;    // ¡OJO que p_tmp tiene un SIGNO!
+                    x_tmp += p_tmp * DT / M;    // Update particle position
+                    
                     signop = copysign(1.0, p_tmp);
                     k = trunc(x_tmp + 0.5 * signop);
-                    if (k != 0)
-                    {
+                    
+                    if (k != 0) {
                         double randomValue = d_xorshift(&seed);
                         double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
                         randomValue = d_xorshift(&seed);
                         double xi2 = 2.0 * PI * randomValue;
+
                         double deltaX = sqrt(labs(k)) * xi1 * cos(xi2) * sigmaL;
                         deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
                         x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
-                        if (fabs(x_tmp) > 0.502)
-                        {
+
+                        if (fabs(x_tmp) > 0.502) {
                             x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
                         }
-                        p_tmp = fabs(p_tmp);    // <-- le saco el signo a p_tmp
-                        for (int l = 1; l <= labs(k); l++)
-                        {
+
+                        p_tmp = fabs(p_tmp);
+                        for (int l = 1; l <= labs(k); l++) {
                             double DeltaE = alfa * pow((p_tmp - pmin) * (pmax - p_tmp), 2);
                             randomValue = d_xorshift(&seed);
                             p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                         }
+
                         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
                     }
                 }
+
                 x[i] = x_tmp;
                 p[i] = p_tmp;
             }
         }
 
+        // Update histograms
         #pragma omp for schedule(static)
         for (int i = 0; i < N_PART; i++) {
             int h_idx = floor((2.0 * x[i] + 1) * BINS + 2.5);
             int g_idx = floor((p[i] / 3.0e-23 + 1) * BINS + 0.5);
             int hg_idx = (2 * BINS + 1) * h_idx + g_idx;
+
             h[h_idx]++;
             g[g_idx]++;
             hg[hg_idx]++;
         }
 
+        // Increment evolution
         evolution += steps[j];
+
+        // Create filename based on evolution
+        char filename[32];
         if (evolution < 10000000) {
             sprintf(filename, "X%07d.dat", evolution);
         } else {
@@ -188,23 +166,61 @@ int main()
             char *e = memchr(filename, 'e', 32);
             strcpy(e + 1, e + 3);
         }
+
+        // Save data if needed
         if (dump == 0) {
             save_data(saveFilename, x, p, evolution, N_PART);
         }
+
+        // Generate histograms
         make_hist(h, g, hg, DxE, DpE, filename, BINS);
         energy_sum(p, N_PART, evolution, M);
     }
-    // End of Work code.
+}
+
+
+int main() {
+    // ============= Initialize variables =============
+    int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0;
+    unsigned int Ntandas = 0u;
+    char inputFilename[255], saveFilename[255];
+    double DT = 0.0, M = 0.0, sigmaL = 0.0;
+
+    int evolution = 0;
+
+    load_parameters_from_file("datos.in", &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
+                              saveFilename, &retake, &dump, &sigmaL);
+
+    // Allocate memory for simulation arrays
+    double *x, *p, *DxE, *DpE;
+    int *h, *g, *hg;
+    if (!allocate_memory(N_PART, BINS, &x, &p, &DxE, &DpE, &h, &g, &hg)) {
+        return 1; // Exit if memory allocation failed
+    }
+
+    // Initialize histograms and particle arrays
+    initialize_histograms(BINS, h, g, hg, DxE, DpE, N_PART);
+
+    // ============= Initialize particles arrays =============
+    if (retake != 0) {
+        while (true) {
+            initialize_particles(N_PART, x, p);
+            update_histograms(N_PART, BINS, x, p, h, g, hg);
+            int X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS);
+            if (X0 != 1) break;
+            printf("Falló algún chi2: X0=%1d\n", X0);
+        }
+    } else {
+        read_data(inputFilename, x, p, &evolution, N_PART);
+    }
+
+    // Run the main simulation
+    run_simulation(N_PART, DT, M, steps, Ntandas, x, p, DxE, DpE,  h, g, hg, BINS, saveFilename, dump, sigmaL, evolution);
 
     printf("Completo evolution = %d\n", evolution);
 
-    free(x);
-    free(p);
-    free(DxE);
-    free(DpE);
-    free(h);
-    free(g);
-    free(hg);
+    // Free allocated memory
+    free(x); free(p); free(DxE); free(DpE); free(h); free(g); free(hg);
 
     return 0;
 }
