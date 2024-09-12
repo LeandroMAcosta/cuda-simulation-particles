@@ -2,6 +2,30 @@
 #include <omp.h>
 
 
+// Function to initialize histograms
+void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, double* DpE, int N_PART) {
+    #pragma omp parallel for simd schedule(static)
+    for (int i = 0; i <= (BINS + 2) << 1; i++) {
+        DxE[i] = 1.0E-3 * N_PART;
+    }
+    DxE[0] = DxE[1] = DxE[2 * BINS + 3] = DxE[2 * BINS + 4] = 0.0;
+    DxE[2] *= 0.5;
+    DxE[2 * BINS + 2] *= 0.5;
+
+    memset(h, 0, (2 * BINS + 5) * sizeof(int));
+    memset(g, 0, (2 * BINS + 1) * sizeof(int));
+    memset(hg, 0, (2 * BINS + 5) * (2 * BINS + 1) * sizeof(int));
+
+    #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS + 1]) schedule(static)
+    for (int i = 0; i <= BINS << 1; i++) {
+        double numerator = 6.0E-26 * N_PART;
+        double denominator = 5.24684E-24 * sqrt(2.0 * PI);
+        double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 1) / 5.24684E-24, 2) / 2;
+        DpE[i] = (numerator / denominator) * exp(exponent);
+    }
+}
+
+
 int main()
 {
     // ============= Initialize variables =============
@@ -39,37 +63,9 @@ int main()
         return 1;
     }
 
-    // ============= Initialize histograms =============
+    // Initialize histograms and particle arrays
+    initialize_histograms(BINS, h, g, hg, DxE, DpE, N_PART);
 
-    // Compute momentum distribution (DpE)
-    #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS + 1]) schedule(static)
-    for (int i = 0; i <= BINS << 1; i++)
-    {
-        double numerator = 6.0E-26 * N_PART;
-        double denominator = 5.24684E-24 * sqrt(2.0 * PI);
-        double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 1) / 5.24684E-24, 2) / 2;
-        DpE[i] = (numerator / denominator) * exp(exponent);
-    }
-
-    // Compute position distribution (DxE)
-    #pragma omp parallel for simd schedule(static)
-    for (int i = 0; i <= (BINS + 2) << 1; i++)
-    {
-        DxE[i] = 1.0E-3 * N_PART;
-    }
-
-    // Adjust boundary conditions for position distribution
-    DxE[0] = 0.0;
-    DxE[1] = 0.0;
-    DxE[2] = DxE[2] * 0.5;
-    DxE[2 * BINS + 2] = DxE[2 * BINS + 2] * 0.5;
-    DxE[2 * BINS + 3] = 0.0;
-    DxE[2 * BINS + 4] = 0.0;
-
-    // Initialize histograms (h, g, hg)
-    memset(h, 0, (2 * BINS + 5) * sizeof(int));
-    memset(g, 0, (2 * BINS + 1) * sizeof(int));
-    memset(hg, 0, (2 * BINS + 5) * (2 * BINS + 1) * sizeof(int));
 
     // ============= Initialize particles arrays =============
     if (retake != 0)
