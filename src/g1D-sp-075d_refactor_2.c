@@ -81,51 +81,66 @@ void update_histograms(int N_PART, int BINS, double* x, double* p, int* h, int* 
     }
 }
 
-
 void run_simulation(int N_PART, double DT, double M, int* steps, unsigned int Ntandas, double* x, double* p, 
                     double* DxE, double* DpE, int* h, int* g, int* hg, int BINS, char* saveFilename, int dump, double sigmaL, int evolution) {
 
-    // Initialize the necessary variables
-    double d = 1.0e-72, alfa = 1.5E+42;
-    double pmin = 3.0E-026, pmax = 3.0E-023;
+    // Initialize some constants used in the simulation
+    double d = 1.0e-72, alfa = 1.5E+42; // Physical constants
+    double pmin = 3.0E-026, pmax = 3.0E-023; // Momentum bounds
 
-    // Sum energy before starting the simulation
-    energy_sum(p, N_PART, evolution, M);
+    // Print initial energy and simulation parameters
+    energy_sum(p, N_PART, evolution, M); // Calculate and print the total energy of the system
     printf("d=%12.9E  alfa=%12.9E\n", d, alfa);
 
+    // Loop over the number of tandas (iterations) specified by the user
     for (unsigned int j = 0; j < Ntandas; j++) {
-        long int k;
-        int signop;
-        
+        long int k; // Used for integer particle positions
+        int signop; // Used to keep track of the sign of momentum
+
+        // Parallel region where particle positions and momenta are updated
         #pragma omp parallel shared(x, p)
         {
+            // Initialize a random seed for each thread (based on current time and thread number)
             uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
             
+            // Each thread processes a subset of particles
             #pragma omp for private(k, signop) schedule(dynamic)
-            for (int i = 0; i < N_PART; ++i){
-                double x_tmp = x[i];
-                double p_tmp = p[i];
+            for (int i = 0; i < N_PART; ++i) {
+                double x_tmp = x[i]; // Temporary variable for the particle's position
+                double p_tmp = p[i]; // Temporary variable for the particle's momentum
                 
+                // Update particle position and momentum for each step in this tanda
                 for (int step = 0; step < steps[j]; step++) {
-                    x_tmp += p_tmp * DT / M;    // Update particle position
-                    
+                    // Update particle position using its momentum (basic kinematics)
+                    x_tmp += p_tmp * DT / M;    
+
+                    // Determine the sign of the momentum
                     signop = copysign(1.0, p_tmp);
+
+                    // Compute an integer k based on the particle's position
                     k = trunc(x_tmp + 0.5 * signop);
-                    
+
+                    // Check if the particle crosses boundaries and apply corrections
                     if (k != 0) {
+                        // Generate two random values for noise in particle movement
                         double randomValue = d_xorshift(&seed);
                         double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
                         randomValue = d_xorshift(&seed);
                         double xi2 = 2.0 * PI * randomValue;
 
+                        // Update particle position by adding random displacement
                         double deltaX = sqrt(labs(k)) * xi1 * cos(xi2) * sigmaL;
                         deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
+
+                        // Apply boundary corrections based on the sign of `k`
                         x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
 
+                        // Ensure the particle stays within the simulation boundaries
                         if (fabs(x_tmp) > 0.502) {
                             x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
                         }
 
+                        // Update the particle's momentum using energy exchange formula
                         p_tmp = fabs(p_tmp);
                         for (int l = 1; l <= labs(k); l++) {
                             double DeltaE = alfa * pow((p_tmp - pmin) * (pmax - p_tmp), 2);
@@ -133,51 +148,55 @@ void run_simulation(int N_PART, double DT, double M, int* steps, unsigned int Nt
                             p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                         }
 
+                        // Flip momentum if necessary, based on the sign of `k` and `signop`
                         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
                     }
                 }
 
+                // Update the main position and momentum arrays
                 x[i] = x_tmp;
                 p[i] = p_tmp;
             }
         }
 
-        // Update histograms
+        // Update histograms with the new particle positions and momenta
         #pragma omp for schedule(static)
         for (int i = 0; i < N_PART; i++) {
-            int h_idx = floor((2.0 * x[i] + 1) * BINS + 2.5);
-            int g_idx = floor((p[i] / 3.0e-23 + 1) * BINS + 0.5);
-            int hg_idx = (2 * BINS + 1) * h_idx + g_idx;
+            int h_idx = floor((2.0 * x[i] + 1) * BINS + 2.5);  // Position index for histogram
+            int g_idx = floor((p[i] / 3.0e-23 + 1) * BINS + 0.5); // Momentum index for histogram
+            int hg_idx = (2 * BINS + 1) * h_idx + g_idx; // Combined position-momentum histogram index
 
+            // Increment the corresponding histogram bins
             h[h_idx]++;
             g[g_idx]++;
             hg[hg_idx]++;
         }
 
-        // Increment evolution
+        // Increment the evolution variable by the number of steps taken in this tanda
         evolution += steps[j];
 
-        // Create filename based on evolution
+        // Generate a filename based on the current evolution step
         char filename[32];
         if (evolution < 10000000) {
             sprintf(filename, "X%07d.dat", evolution);
         } else {
             sprintf(filename, "X%1.3e.dat", (double)evolution);
             char *e = memchr(filename, 'e', 32);
-            strcpy(e + 1, e + 3);
+            strcpy(e + 1, e + 3); // Format the scientific notation part of the filename
         }
 
-        // Save data if needed
+        // Save particle data to a file if dumping is enabled
         if (dump == 0) {
             save_data(saveFilename, x, p, evolution, N_PART);
         }
 
-        // Generate histograms
+        // Generate histograms for the current state of the system
         make_hist(h, g, hg, DxE, DpE, filename, BINS);
+
+        // Sum the system's energy and print it
         energy_sum(p, N_PART, evolution, M);
     }
 }
-
 
 int main() {
     // ============= Initialize variables =============

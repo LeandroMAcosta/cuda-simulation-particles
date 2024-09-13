@@ -57,7 +57,7 @@ void read_data(char filename[], double *x, double *p, int *evolution, int N_PART
 void energy_sum(double *p, int N_PART, int evolution, double M)
 {
     double sumEnergy = 0;
-#pragma omp parallel for reduction(+ : sumEnergy) schedule(static)
+    #pragma omp parallel for reduction(+ : sumEnergy) schedule(static)
     for (int i = 0; i < N_PART; i++)
     {
         sumEnergy += p[i] * p[i];
