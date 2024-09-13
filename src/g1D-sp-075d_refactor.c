@@ -1,11 +1,6 @@
-#include "../include/utils.h" // Include custom utility functions
-#include <omp.h> // Include OpenMP for parallel processing
-#include <stdlib.h>
-#include <stdio.h>
-#include <math.h>
-#include <string.h>
-#include <stdbool.h>
-#include <time.h>
+#include "../include/utils.h"
+#include <omp.h>
+
 
 // Function to allocate memory for simulation arrays
 bool allocate_memory(int N_PART, int BINS, double** x, double** p, double** DxE, double** DpE, int** h, int** g, int** hg) {
@@ -19,6 +14,7 @@ bool allocate_memory(int N_PART, int BINS, double** x, double** p, double** DxE,
 
     return (*x && *p && *DxE && *DpE && *h && *g && *hg);
 }
+
 
 // Function to initialize histograms
 void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, double* DpE, int N_PART) {
@@ -85,48 +81,134 @@ void update_histograms(int N_PART, int BINS, double* x, double* p, int* h, int* 
     }
 }
 
-// Function to run the main simulation steps
-void run_simulation(int N_PART, double DT, double M, int* steps, unsigned int Ntandas, double* x, double* p) {
+void run_simulation(int N_PART, double DT, double M, int* steps, unsigned int Ntandas, double* x, double* p, 
+                    double* DxE, double* DpE, int* h, int* g, int* hg, int BINS, char* saveFilename, int dump, double sigmaL, int evolution) {
+
+    // Initialize some constants used in the simulation
+    double d = 1.0e-72, alfa = 1.5E+42; // Physical constants
+    double pmin = 3.0E-026, pmax = 3.0E-023; // Momentum bounds
+
+    // Print initial energy and simulation parameters
+    energy_sum(p, N_PART, evolution, M); // Calculate and print the total energy of the system
+    printf("d=%12.9E  alfa=%12.9E\n", d, alfa);
+
+    // Loop over the number of tandas (iterations) specified by the user
     for (unsigned int j = 0; j < Ntandas; j++) {
+        long int k; // Used for integer particle positions
+        int signop; // Used to keep track of the sign of momentum
+
+        // Parallel region where particle positions and momenta are updated
         #pragma omp parallel shared(x, p)
         {
+            // Initialize a random seed for each thread (based on current time and thread number)
             uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-
-            #pragma omp for schedule(dynamic)
+            
+            // Each thread processes a subset of particles
+            #pragma omp for private(k, signop) schedule(dynamic)
             for (int i = 0; i < N_PART; ++i) {
-                double x_tmp = x[i];
-                double p_tmp = p[i];
-
+                double x_tmp = x[i]; // Temporary variable for the particle's position
+                double p_tmp = p[i]; // Temporary variable for the particle's momentum
+                
+                // Update particle position and momentum for each step in this tanda
                 for (int step = 0; step < steps[j]; step++) {
-                    x_tmp += p_tmp * DT / M;
-                    int signop = copysign(1.0, p_tmp);
-                    long k = trunc(x_tmp + 0.5 * signop);
+                    // Update particle position using its momentum (basic kinematics)
+                    x_tmp += p_tmp * DT / M;    
 
+                    // Determine the sign of the momentum
+                    signop = copysign(1.0, p_tmp);
+
+                    // Compute an integer k based on the particle's position
+                    k = trunc(x_tmp + 0.5 * signop);
+
+                    // Check if the particle crosses boundaries and apply corrections
                     if (k != 0) {
-                        double xi1 = d_xorshift(&seed);
-                        double xi2 = d_xorshift(&seed);
-                        p_tmp += 0.25 * (sqrt(-2.0 * log(xi1)) * sin(2.0 * PI * xi2) - p_tmp) / 1.0e-12;
-                        x_tmp -= signop;
+                        // Generate two random values for noise in particle movement
+                        double randomValue = d_xorshift(&seed);
+                        double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
+                        randomValue = d_xorshift(&seed);
+                        double xi2 = 2.0 * PI * randomValue;
+
+                        // Update particle position by adding random displacement
+                        double deltaX = sqrt(labs(k)) * xi1 * cos(xi2) * sigmaL;
+                        deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
+
+                        // Apply boundary corrections based on the sign of `k`
+                        x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
+
+                        // Ensure the particle stays within the simulation boundaries
+                        if (fabs(x_tmp) > 0.502) {
+                            x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
+                        }
+
+                        // Update the particle's momentum using energy exchange formula
+                        p_tmp = fabs(p_tmp);
+                        for (int l = 1; l <= labs(k); l++) {
+                            double DeltaE = alfa * pow((p_tmp - pmin) * (pmax - p_tmp), 2);
+                            randomValue = d_xorshift(&seed);
+                            p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
+                        }
+
+                        // Flip momentum if necessary, based on the sign of `k` and `signop`
+                        p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
                     }
                 }
 
+                // Update the main position and momentum arrays
                 x[i] = x_tmp;
                 p[i] = p_tmp;
             }
         }
+
+        // Update histograms with the new particle positions and momenta
+        #pragma omp for schedule(static)
+        for (int i = 0; i < N_PART; i++) {
+            int h_idx = floor((2.0 * x[i] + 1) * BINS + 2.5);  // Position index for histogram
+            int g_idx = floor((p[i] / 3.0e-23 + 1) * BINS + 0.5); // Momentum index for histogram
+            int hg_idx = (2 * BINS + 1) * h_idx + g_idx; // Combined position-momentum histogram index
+
+            // Increment the corresponding histogram bins
+            h[h_idx]++;
+            g[g_idx]++;
+            hg[hg_idx]++;
+        }
+
+        // Increment the evolution variable by the number of steps taken in this tanda
+        evolution += steps[j];
+
+        // Generate a filename based on the current evolution step
+        char filename[32];
+        if (evolution < 10000000) {
+            sprintf(filename, "X%07d.dat", evolution);
+        } else {
+            sprintf(filename, "X%1.3e.dat", (double)evolution);
+            char *e = memchr(filename, 'e', 32);
+            strcpy(e + 1, e + 3); // Format the scientific notation part of the filename
+        }
+
+        // Save particle data to a file if dumping is enabled
+        if (dump == 0) {
+            save_data(saveFilename, x, p, evolution, N_PART);
+        }
+
+        // Generate histograms for the current state of the system
+        make_hist(h, g, hg, DxE, DpE, filename, BINS);
+
+        // Sum the system's energy and print it
+        energy_sum(p, N_PART, evolution, M);
     }
 }
 
 int main() {
-    // Declare variables for configuration and simulation
-    int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0, evolution = 0;
-
+    // ============= Initialize variables =============
+    int N_THREADS = 0, N_PART = 0, BINS = 0, steps[50], retake = 0, dump = 0;
     unsigned int Ntandas = 0u;
-    double DT = 0.0, M = 0.0, sigmaL = 0.0;
     char inputFilename[255], saveFilename[255];
+    double DT = 0.0, M = 0.0, sigmaL = 0.0;
 
-    // Load simulation parameters from file
-    load_parameters_from_file("datos.in", &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename, saveFilename, &retake, &dump, &sigmaL);
+    int evolution = 0;
+
+    load_parameters_from_file("datos.in", &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
+                              saveFilename, &retake, &dump, &sigmaL);
 
     // Allocate memory for simulation arrays
     double *x, *p, *DxE, *DpE;
@@ -137,7 +219,8 @@ int main() {
 
     // Initialize histograms and particle arrays
     initialize_histograms(BINS, h, g, hg, DxE, DpE, N_PART);
-    
+
+    // ============= Initialize particles arrays =============
     if (retake != 0) {
         while (true) {
             initialize_particles(N_PART, x, p);
@@ -151,10 +234,60 @@ int main() {
     }
 
     // Run the main simulation
-    run_simulation(N_PART, DT, M, steps, Ntandas, x, p);
+    run_simulation(N_PART, DT, M, steps, Ntandas, x, p, DxE, DpE,  h, g, hg, BINS, saveFilename, dump, sigmaL, evolution);
+
+    printf("Completo evolution = %d\n", evolution);
 
     // Free allocated memory
     free(x); free(p); free(DxE); free(DpE); free(h); free(g); free(hg);
 
     return 0;
 }
+
+/* para graficar en el gnuplot: (sacando un archivo "hists.eps")
+set terminal postscript enhanced color eps 20
+set output "hists.eps"
+# histograma de x  (las dos líneas siguientes alcanzan para graficar las x
+dentro del gnuplot) set style fill solid 1.0 # o medio transparente: set style
+fill transparent solid 0.5 noborder set key left ; set xrange[-0.5:0.5] p
+'X1000000.dat' u 1:2 w boxes lc rgb "#dddddd" t 'X1000000.dat' , 'X2000000.dat'
+u 1:2 w boxes lc rgb "#77ff77" t 'X2000000.dat' , 'X2000001.dat' u 1:2 w boxes
+lc "#ffaaaa" t 'X2000001.dat' , 'X2000002.dat' u 1:2 w boxes lc "#dddd55" t
+'X2000002.dat' , 'X2000003.dat' u 1:2 w boxes lc rgb "#ffdddd" t 'X2000003.dat'
+, 'X2000008.dat' u 1:2 w boxes lc rgb "#cc44ff" t 'X2000008.dat' ,
+'X2000018.dat' u 1:2 w boxes lc rgb "#888888" t 'X2000018.dat' , 'X2000028.dat'
+u 1:2 w boxes lc rgb "#bbddbb" t 'X2000028.dat' , 'X2000038.dat' u 1:2 w boxes
+lc rgb "#ffee00" t 'X2000038.dat' , 'X2000048.dat' u 1:2 w boxes lc rgb
+"#8844ff" t 'X2000048.dat' , 'X2000058.dat' u 1:2 w boxes lc rgb "#cceeff" t
+'X2000058.dat' , 'X2000068.dat' u 1:2 w boxes lc rgb "#44bb44" t 'X2000068.dat'
+, 'X2000078.dat' u 1:2 w boxes lc rgb "#99ee77" t 'X2000078.dat' ,
+'X2000088.dat' u 1:2 w boxes lc rgb "#ffdd66" t 'X2000088.dat' , 'X2000098.dat'
+u 1:2 w boxes lc rgb "#4444ff" t 'X2000098.dat' # histograma de p  (las dos
+líneas siguientes alcanzan para graficar las p dentro del gnuplot) set key left
+; set xrange[-3e-23:3e-23] p 'X0000500.dat' u 3:4 w boxes lc rgb "#dddddd" t
+'X0000500.dat' , 'X0001000.dat' u 3:4 w boxes lc rgb "#77ff77" t 'X0001000.dat'
+, 'X0002000.dat' u 3:4 w boxes lc "#ffaaaa" t 'X0002000.dat' , 'X0005000.dat' u
+3:4 w boxes lc "#dddd55" t 'X0005000.dat' , 'X0010000.dat' u 3:4 w boxes lc rgb
+"#ffdddd" t 'X0010000.dat' , 'X0020000.dat' u 3:4 w boxes lc rgb "#cc44ff" t
+'X0020000.dat' , 'X0050000.dat' u 3:4 w boxes lc rgb "#888888" t 'X0050000.dat'
+, 'X0100000.dat' u 3:4 w boxes lc rgb "#bbddbb" t 'X0100000.dat' ,
+'X0200000.dat' u 3:4 w boxes lc rgb "#ffee00" t 'X0200000.dat' , 'X0500000.dat'
+u 3:4 w boxes lc rgb "#8844ff" t 'X0500000.dat' , 'X0995000.dat' u 3:4 w boxes
+lc rgb "#cceeff" t 'X0995000.dat' , 'X0999000.dat' u 3:4 w boxes lc rgb
+"#44bb44" t 'X0999000.dat' , 'X0999500.dat' u 3:4 w boxes lc rgb "#99ee77" t
+'X0999500.dat' , 'X1000000.dat' u 3:4 w boxes lc rgb "#ffdd66" t 'X1000000.dat'
+, 'X2000000.dat' u 3:4 w boxes lc rgb "#4444ff" t 'X2000000.dat' set terminal qt
+
+
+p 'X0000001.dat' u 1:2 w boxes lc rgb "#dddddd" t 'X0000001.dat' ,
+'X0000100.dat' u 1:2 w boxes lc rgb "#77ff77" t 'X0000100.dat' , 'X0001000.dat'
+u 1:2 w boxes lc "#ffaaaa" t 'X0001000.dat' , 'X0001200.dat' u 1:2 w boxes lc
+"#dddd55" t 'X0001200.dat' , 'X0001400.dat' u 1:2 w boxes lc rgb "#ffdddd" t
+'X0001400.dat' , 'X0001500.dat' u 1:2 w boxes lc rgb "#cc44ff" t 'X0001500.dat'
+, 'X0001600.dat' u 1:2 w boxes lc rgb "#888888" t 'X0001600.dat' ,
+'X0001700.dat' u 1:2 w boxes lc rgb "#bbddbb" t 'X0001700.dat' , 'X0001800.dat'
+u 1:2 w boxes lc rgb "#ffee00" t 'X0001800.dat' , 'X0001900.dat' u 1:2 w boxes
+lc rgb "#8844ff" t 'X0001900.dat' , 'X0002000.dat' u 1:2 w boxes lc rgb
+"#cceeff" t 'X0002000.dat'
+
+*/
