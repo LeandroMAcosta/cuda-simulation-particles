@@ -6,7 +6,8 @@ OMP := -fopenmp
 TARGET := main
 
 # SRC := src/g1D-sp-075d.c src/utils.c
-SRC := src/g1D-sp-075d_refactor_2.c src/utils.c
+# SRC := src/g1D-sp-075d.c src/utils.c
+SRC := src/g1D-1000.c src/utils.c
 OBJ := $(SRC:.c=.o)
 
 all: $(TARGET)

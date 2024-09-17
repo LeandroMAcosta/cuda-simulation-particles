@@ -3,7 +3,6 @@
 
 #include "constants.h"
 #include <math.h>
-#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,16 +21,14 @@ inline double d_xorshift(uint32_t *state)
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
-                               int *retake, int *dump, double *sigmaL);
+                               int *resume, int *dump, double *sigmaL);
 
-void read_data(char filename[], double *x, double *p, int *evolution, int N_PART);
+void read_data(char filename[], double *x, double *p, unsigned int *evolution, int N_PART);
 
-void save_data(char filename[], double *x, double *p, int evolution, int N_PART);
+void save_data(char filename[], double *x, double *p, unsigned int evolution, int N_PART);
 
-void energy_sum(double *p, int N_PART, int evolution, double M);
+double energy_sum(double *p, int N_PART, unsigned int evolution, double M);
 
-int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS);
-
-bool check_memory_allocations(double *x, double *p, double *DxE, double *DpE, int *h, int *g, int *hg);
+int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS, double Et);
 
 #endif

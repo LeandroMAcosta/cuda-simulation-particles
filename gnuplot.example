@@ -8,3 +8,5 @@ set boxwidth 0.001
 
 # Plot the histogram of x
 plot 'output.dat' using 1:2 with boxes lc rgb "blue" title "Population"
+
+p 'X1.001e8.dat' u 1:2 w l t 'X1.001e8.dat'
