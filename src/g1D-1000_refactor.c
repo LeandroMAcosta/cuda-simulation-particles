@@ -1,76 +1,91 @@
+/* Main simulation code */
 #include "../include/utils.h"
 #include <omp.h>
 
-/* Compilar usando el Makefile */
-
 int main()
 {
-    int N_THREADS = 0, N_PART = 0, BINS = 0, steps[500], resume = 0, dump = 0;
-    unsigned int Ntandas = 0u;
-    char inputFilename[255], saveFilename[255];
-    double DT = 0.0, M = 0.0, sigmaL = 0.0;
+    // Initialize basic simulation variables
+    int N_THREADS = 0, N_PART = 0, BINS = 0;               // Number of threads, number of particles, number of bins
+    int steps[500], resume = 0, dump = 0;                  // Steps array, resume flag, dump flag
+    unsigned int Ntandas = 0u;                             // Number of simulation rounds
+    char inputFilename[255], saveFilename[255];            // Input and save filenames
+    double DT = 0.0, M = 0.0, sigmaL = 0.0;                // Time step, mass, and sigmaL parameter for calculations
 
-    double xi1 = 0.0, xi2 = 0.0;
-    int X0 = 1;
-    char filename[32];
+    // Random number generator and filename parameters
+    double xi1 = 0.0, xi2 = 0.0;                           // Temporary variables for random numbers
+    int X0 = 1;                                            // Control variable for resuming simulation
+    char filename[32];                                     // Filename for saving data
 
-    double d = 1.0e-72, alfa = 1.0e-4;
-    unsigned int evolution = 0u;
-    double pmin = 2.0E-026, pmax = 3.0E-023;
+    // Simulation constants
+    double d = 1.0e-72, alfa = 1.0e-4;                     // Constants d and alfa for energy updates
+    unsigned int evolution = 0u;                           // Tracks the evolution of the system
+    double pmin = 2.0E-026, pmax = 3.0E-023;               // Minimum and maximum momentum values
 
-    char data_filename[] = "datos.in";
+    // Define the filename for the input data file
+    char data_filename[] = "datos.in";                     // Input file containing simulation parameters
 
+    // Load simulation parameters from input file
     load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
                               saveFilename, &resume, &dump, &sigmaL);
 
-    double *x = malloc(sizeof(double) * N_PART);
-    double *p = malloc(sizeof(double) * N_PART);
-    double *DxE = malloc(sizeof(double) * (2 * BINS + 4));
-    double *DpE = malloc(sizeof(double) * (2 * BINS));
-    int *h = malloc(sizeof(int) * (2 * BINS + 4));
-    int *g = malloc(sizeof(int) * (2 * BINS));
-    int *hg = malloc(sizeof(int) * (2 * BINS + 4) * (2 * BINS));
+    /* Allocate memory for simulation arrays */
+    double *x = malloc(sizeof(double) * N_PART);           // Positions of particles
+    double *p = malloc(sizeof(double) * N_PART);           // Momenta of particles
+    double *DxE = malloc(sizeof(double) * (2 * BINS + 4)); // Histogram array for positions
+    double *DpE = malloc(sizeof(double) * (2 * BINS));     // Histogram array for momenta
+    int *h = malloc(sizeof(int) * (2 * BINS + 4));         // Position histogram counts
+    int *g = malloc(sizeof(int) * (2 * BINS));             // Momentum histogram counts
+    int *hg = malloc(sizeof(int) * (2 * BINS + 4) * (2 * BINS)); // 2D histogram for positions and momenta
 
+    /* Initialize histograms for momentum distribution */
     #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
     for (int i = 0; i < BINS << 1; i++) {
+        // Calculate Gaussian distribution for momentum
         double numerator = 6.0E-26 * N_PART;
         double denominator = 5.24684E-24 * sqrt(2.0 * PI);
         double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / 5.24684E-24, 2) / 2;
         DpE[i] = (numerator / denominator) * exp(exponent);
     }
 
+    /* Initialize histograms for position distribution */
     #pragma omp parallel for simd schedule(static)
     for (int i = 2; i < (BINS + 1) << 1; i++) {
-        DxE[i] = 1.0E-3 * N_PART;
+        DxE[i] = 1.0E-3 * N_PART;  // Set position histogram with initial values
     }
 
+    // Set boundary conditions for position histograms
     DxE[0] = 0.0;
     DxE[1] = 0.0;
     DxE[2 * BINS + 2] = 0.0;
     DxE[2 * BINS + 3] = 0.0;
 
+    /* Initialize the histograms (h, g, hg) to zero */
     memset(h, 0, (2 * BINS + 4) * sizeof(int));
     memset(g, 0, (2 * BINS) * sizeof(int));
     memset(hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
 
+    /* Resume simulation if required */
     if (resume != 0) {
         while (X0 == 1) {
-            // initialize particles
+            // Initialize particles' positions and momenta
             #pragma omp parallel
             {
-                uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
+                uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());  // Seed for random number generation
+
+                // Initialize particle positions
                 #pragma omp for schedule(static)
-                for (int i = 0; i < N_PART; i++)
-                {
-                    double randomValue = d_xorshift(&seed);
+                for (int i = 0; i < N_PART; i++) {
+                    double randomValue = d_xorshift(&seed);  // Generate random position
                     x[i] = randomValue * 0.5;
                 }
+
+                // Initialize particle momenta
                 #pragma omp for schedule(static)
-                for (int i = 0; i < N_PART >> 1; i++)
-                {
+                for (int i = 0; i < N_PART >> 1; i++) {
                     double randomValue1 = d_xorshift(&seed);
                     double randomValue2 = d_xorshift(&seed);
 
+                    // Box-Muller transform to generate random momentum values
                     xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
                     xi2 = 2.0 * PI * randomValue2;
 
@@ -79,99 +94,121 @@ int main()
                 }
             }
 
+            /* Update histograms based on particle positions and momenta */
             #pragma omp parallel for schedule(static)
             for (int i = 0; i < N_PART; i++) {
-                int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
-                int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS));
+                int h_idx = floor((x[i] + 0.5) * (1.99999999999999 * BINS) + 2.0);
+                int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994 * BINS));
                 int hg_idx = (2 * BINS) * h_idx + g_idx;
                 h[h_idx]++;
                 g[g_idx]++;
                 hg[hg_idx]++;
             }
+
+            // Calculate total energy and generate histogram file
             double Et = energy_sum(p, N_PART, evolution, M);
             X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS, Et);
             if (X0 == 1) {
-                printf("Falló algún chi2: X0=%1d\n", X0);
+                printf("Error: Chi-square test failed: X0=%1d\n", X0);
             }
         }
     } else {
+        // Load particle data from input file if not resuming
         read_data(inputFilename, x, p, &evolution, N_PART);
     }
 
+    /* Calculate the initial total energy */
     double Et = energy_sum(p, N_PART, evolution, M);
     printf("pmin=%12.9E      d=%9.6E     alfa=%12.9E   Et=%12.9E\n", pmin, d, alfa, Et);
 
-    // Work code here:
+    /* Start the main simulation loop */
     for (unsigned int j = 0; j < Ntandas; j++) {
-        // iter_in_range code here:
+        // Iterate through the simulation steps for this round
         long int k;
         int signop;
-        #pragma omp parallel shared(x, p) {
-            uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
+        #pragma omp parallel shared(x, p)
+        {
+            uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());  // Seed for random numbers
+
+            // Update particle positions and momenta for each step
             #pragma omp for private(k, signop) schedule(dynamic)
             for (int i = 0; i < N_PART; ++i) {
                 double x_tmp = x[i];
                 double p_tmp = p[i];
-                //	printf("i=%d    x=%9.6f  p=%12.9E\n",i,x[i],p[i]);
+
                 for (int step = 0; step < steps[j]; step++) {
-                    x_tmp += p_tmp * DT / M; // ¡OJO que p_tmp tiene un SIGNO!
-                    signop = copysign(1.0, p_tmp);
+                    x_tmp += p_tmp * DT / M;  // Update position based on momentum
+                    signop = copysign(1.0, p_tmp);  // Determine sign of momentum
                     k = trunc(x_tmp + 0.5 * signop);
-                    // if ( (x[i]!=x[i]) || (p[i]!=p[i]) || (x_tmp!=x_tmp) || (p_tmp!=p_tmp) ) { printf("i=%d   k=%ld   x_tmp=%9.6f   p_tmp=%12.9E   step=%d\n",i,k,x_tmp,p_tmp,step); step = steps[j]; }
+
                     if (k != 0) {
-  			            double randomValue = d_xorshift(&seed);
-                        double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
+                        // Apply random fluctuations to particle motion
+                        double randomValue = d_xorshift(&seed);
+                        xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
                         randomValue = d_xorshift(&seed);
-                        double xi2 = 2.0 * PI * randomValue;
+                        xi2 = 2.0 * PI * randomValue;
                         double deltaX = sqrt(labs(k)) * xi1 * cos(xi2) * sigmaL;
-                        deltaX = (fabs(deltaX) > 1.0 ? 1.0*copysign(1.0,deltaX) : deltaX);
+                        deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
                         x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
                         if (fabs(x_tmp) > 0.502) {
                             x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
                         }
-                        p_tmp = fabs(p_tmp); // <-- le saco el signo
+
+                        p_tmp = fabs(p_tmp);  // Remove sign from momentum
+
+                        // Update momentum with random energy changes
                         for (int l = 1; l <= labs(k); l++) {
                             double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
-                            //  if (2.0*DeltaE >= p_tmp*p_tmp) { printf("i=%d  DeltaE=%12.9E   p_tmp=%12.9E\n",i,DeltaE,p_tmp); }
                             randomValue = d_xorshift(&seed);
                             p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                         }
-                        p_tmp *= (k % 2 ? -1.0 : 1.0) * signop; // <-- devuelvo el signo
+                        p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;  // Restore sign to momentum
                     }
                 }
+
+                // Update the particle arrays with new positions and momenta
                 x[i] = x_tmp;
                 p[i] = p_tmp;
-                //    printf("i=%d  x[i]=%9.6f  x_tmp=%9.6f  p[i]=%12.9E  p_tmp=%12.9E\n",i,x[i],x_tmp,p[i],p_tmp);
             }
         }
-        // End of iter_in_range code.
+
+        /* Update histograms after each round */
         #pragma omp for schedule(static)
         for (int i = 0; i < N_PART; i++) {
-            // { printf("x=%9.6f   h_idx=%9.6f\n",x[i],floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0)); }
-            int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
-            int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS));
+            int h_idx = floor((x[i] + 0.5) * (1.99999999999999 * BINS) + 2.0);
+            int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994 * BINS));
             int hg_idx = (2 * BINS) * h_idx + g_idx;
             h[h_idx]++;
             g[g_idx]++;
             hg[hg_idx]++;
         }
+
+        // Update evolution count
         evolution += steps[j];
+
+        // Format the filename for saving the histogram data
         if (evolution < 10000000) {
             sprintf(filename, "X%07d.dat", evolution);
         } else {
             sprintf(filename, "X%1.3e.dat", (double)evolution);
             char *e = memchr(filename, 'e', 32);
-            strcpy(e + 1, e + 3);
+            strcpy(e + 1, e + 3);  // Adjust scientific notation in filename
         }
+
+        // Save simulation data
         if (dump == 0) {
             save_data(saveFilename, x, p, evolution, N_PART);
         }
-        double Et = energy_sum(p, N_PART, evolution, M);
+
+        // Calculate and save histograms
+        Et = energy_sum(p, N_PART, evolution, M);
         make_hist(h, g, hg, DxE, DpE, filename, BINS, Et);
     }
-    // End of Work code.
-    printf("Completo evolution = %d\n", evolution);
 
+    // Final message indicating completion
+    printf("Simulation complete: evolution = %d\n", evolution);
+
+    /* Free allocated memory */
     free(x);
     free(p);
     free(DxE);
@@ -182,6 +219,7 @@ int main()
 
     return 0;
 }
+
 
 /* para graficar en el gnuplot: (sacando un archivo "hists.eps")
 set terminal postscript enhanced color eps 20
