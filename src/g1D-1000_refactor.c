@@ -1,43 +1,25 @@
-/* Main simulation code */
 #include "../include/utils.h"
 #include <omp.h>
 
-int main()
-{
-    // Initialize basic simulation variables
-    int N_THREADS = 0, N_PART = 0, BINS = 0;               // Number of threads, number of particles, number of bins
-    int steps[500], resume = 0, dump = 0;                  // Steps array, resume flag, dump flag
-    unsigned int Ntandas = 0u;                             // Number of simulation rounds
-    char inputFilename[255], saveFilename[255];            // Input and save filenames
-    double DT = 0.0, M = 0.0, sigmaL = 0.0;                // Time step, mass, and sigmaL parameter for calculations
 
-    // Random number generator and filename parameters
-    double xi1 = 0.0, xi2 = 0.0;                           // Temporary variables for random numbers
-    int X0 = 1;                                            // Control variable for resuming simulation
-    char filename[32];                                     // Filename for saving data
-
-    // Simulation constants
-    double d = 1.0e-72, alfa = 1.0e-4;                     // Constants d and alfa for energy updates
-    unsigned int evolution = 0u;                           // Tracks the evolution of the system
-    double pmin = 2.0E-026, pmax = 3.0E-023;               // Minimum and maximum momentum values
-
-    // Define the filename for the input data file
-    char data_filename[] = "datos.in";                     // Input file containing simulation parameters
-
-    // Load simulation parameters from input file
-    load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
-                              saveFilename, &resume, &dump, &sigmaL);
+// Function to allocate memory for simulation arrays
+bool allocate_memory(int N_PART, int BINS, double** x, double** p, double** DxE, double** DpE, int** h, int** g, int** hg) {
 
     /* Allocate memory for simulation arrays */
-    double *x = malloc(sizeof(double) * N_PART);           // Positions of particles
-    double *p = malloc(sizeof(double) * N_PART);           // Momenta of particles
-    double *DxE = malloc(sizeof(double) * (2 * BINS + 4)); // Histogram array for positions
-    double *DpE = malloc(sizeof(double) * (2 * BINS));     // Histogram array for momenta
-    int *h = malloc(sizeof(int) * (2 * BINS + 4));         // Position histogram counts
-    int *g = malloc(sizeof(int) * (2 * BINS));             // Momentum histogram counts
-    int *hg = malloc(sizeof(int) * (2 * BINS + 4) * (2 * BINS)); // 2D histogram for positions and momenta
+    *x = malloc(sizeof(double) * N_PART);           // Positions of particles
+    *p = malloc(sizeof(double) * N_PART);           // Momenta of particles
+    *DxE = malloc(sizeof(double) * (2 * BINS + 4)); // Histogram array for positions
+    *DpE = malloc(sizeof(double) * (2 * BINS));     // Histogram array for momenta
+    *h = malloc(sizeof(int) * (2 * BINS + 4));         // Position histogram counts
+    *g = malloc(sizeof(int) * (2 * BINS));             // Momentum histogram counts
+    *hg = malloc(sizeof(int) * (2 * BINS + 4) * (2 * BINS)); // 2D histogram for positions and momenta
 
-    /* Initialize histograms for momentum distribution */
+    return (*x && *p && *DxE && *DpE && *h && *g && *hg);
+}
+
+
+void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, double* DpE, int N_PART) {
+     /* Initialize histograms for momentum distribution */
     #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
     for (int i = 0; i < BINS << 1; i++) {
         // Calculate Gaussian distribution for momentum
@@ -63,6 +45,43 @@ int main()
     memset(h, 0, (2 * BINS + 4) * sizeof(int));
     memset(g, 0, (2 * BINS) * sizeof(int));
     memset(hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
+}
+
+
+int main() {
+    // Initialize basic simulation variables
+    int N_THREADS = 0, N_PART = 0, BINS = 0;               // Number of threads, number of particles, number of bins
+    int steps[500], resume = 0, dump = 0;                  // Steps array, resume flag, dump flag
+    unsigned int Ntandas = 0u;                             // Number of simulation rounds
+    char inputFilename[255], saveFilename[255];            // Input and save filenames
+    double DT = 0.0, M = 0.0, sigmaL = 0.0;                // Time step, mass, and sigmaL parameter for calculations
+
+    // Random number generator and filename parameters
+    double xi1 = 0.0, xi2 = 0.0;                           // Temporary variables for random numbers
+    int X0 = 1;                                            // Control variable for resuming simulation
+    char filename[32];                                     // Filename for saving data
+
+    // Simulation constants
+    double d = 1.0e-72, alfa = 1.0e-4;                     // Constants d and alfa for energy updates
+    unsigned int evolution = 0u;                           // Tracks the evolution of the system
+    double pmin = 2.0E-026, pmax = 3.0E-023;               // Minimum and maximum momentum values
+
+    // Define the filename for the input data file
+    char data_filename[] = "datos.in";                     // Input file containing simulation parameters
+
+    // Load simulation parameters from input file
+    load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
+                              saveFilename, &resume, &dump, &sigmaL);
+
+    // Allocate memory for simulation arrays
+    double *x, *p, *DxE, *DpE;
+    int *h, *g, *hg;
+    if (!allocate_memory(N_PART, BINS, &x, &p, &DxE, &DpE, &h, &g, &hg)) {
+        return 1; // Exit if memory allocation failed
+    }
+
+    // Initialize histograms and particle arrays
+    initialize_histograms(BINS, h, g, hg, DxE, DpE, N_PART);
 
     /* Resume simulation if required */
     if (resume != 0) {
@@ -121,7 +140,7 @@ int main()
     double Et = energy_sum(p, N_PART, evolution, M);
     printf("pmin=%12.9E      d=%9.6E     alfa=%12.9E   Et=%12.9E\n", pmin, d, alfa, Et);
 
-    /* Start the main simulation loop */
+    /* ========= Start the main simulation loop ========= */
     for (unsigned int j = 0; j < Ntandas; j++) {
         // Iterate through the simulation steps for this round
         long int k;
