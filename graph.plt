@@ -6,7 +6,6 @@ set ylabel "Population"
 set style fill solid 1.0
 set boxwidth 0.001
 
-# Plot the histogram of x
-plot 'output.dat' using 1:2 with boxes lc rgb "blue" title "Population"
+p 'X0000000.dat' u 1:2 w l t 'X0000000.dat', \
+  'X0010000.dat' u 1:2 w l t 'X0010000.dat'
 
-p 'X1.001e8.dat' u 1:2 w l t 'X1.001e8.dat'
