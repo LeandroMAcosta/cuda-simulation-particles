@@ -19,7 +19,7 @@ bool allocate_memory(int N_PART, int BINS, double** x, double** p, double** DxE,
 
 
 void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, double* DpE, int N_PART) {
-     /* Initialize histograms for momentum distribution */
+    /* Initialize histograms for momentum distribution */
     #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
     for (int i = 0; i < BINS << 1; i++) {
         // Calculate Gaussian distribution for momentum
@@ -48,6 +48,57 @@ void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, doubl
 }
 
 
+void initialize_particles_and_histogram(int N_PART, double* x, double* p, int* h, int* g, int* hg, double* DxE, double* DpE, double xi1, double xi2, unsigned int evolution, double M, int BINS) {
+    int X0 = 1;     // Control variable for resuming simulation
+
+    while (X0 == 1) {
+        // Initialize particles' positions and momenta
+        #pragma omp parallel
+        {
+            uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());  // Seed for random number generation
+
+            // Initialize particle positions
+            #pragma omp for schedule(static)
+            for (int i = 0; i < N_PART; i++) {
+                double randomValue = d_xorshift(&seed);  // Generate random position
+                x[i] = randomValue * 0.5;
+            }
+
+            // Initialize particle momenta
+            #pragma omp for schedule(static)
+            for (int i = 0; i < N_PART >> 1; i++) {
+                double randomValue1 = d_xorshift(&seed);
+                double randomValue2 = d_xorshift(&seed);
+
+                // Box-Muller transform to generate random momentum values
+                xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
+                xi2 = 2.0 * PI * randomValue2;
+
+                p[2 * i] = xi1 * cos(xi2) * 5.24684E-24;
+                p[2 * i + 1] = xi1 * sin(xi2) * 5.24684E-24;
+            }
+        }
+
+        /* Update histograms based on particle positions and momenta */
+        #pragma omp parallel for schedule(static)
+        for (int i = 0; i < N_PART; i++) {
+            int h_idx = floor((x[i] + 0.5) * (1.99999999999999 * BINS) + 2.0);
+            int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994 * BINS));
+            int hg_idx = (2 * BINS) * h_idx + g_idx;
+            h[h_idx]++;
+            g[g_idx]++;
+            hg[hg_idx]++;
+        }
+
+        // Calculate total energy and generate histogram file
+        double Et = energy_sum(p, N_PART, evolution, M);
+        X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS, Et);
+        if (X0 == 1) {
+            printf("Error: Chi-square test failed: X0=%1d\n", X0);
+        }
+    }
+}
+
 int main() {
     // Initialize basic simulation variables
     int N_THREADS = 0, N_PART = 0, BINS = 0;               // Number of threads, number of particles, number of bins
@@ -58,7 +109,6 @@ int main() {
 
     // Random number generator and filename parameters
     double xi1 = 0.0, xi2 = 0.0;                           // Temporary variables for random numbers
-    int X0 = 1;                                            // Control variable for resuming simulation
     char filename[32];                                     // Filename for saving data
 
     // Simulation constants
@@ -85,54 +135,10 @@ int main() {
 
     /* Resume simulation if required */
     if (resume != 0) {
-        while (X0 == 1) {
-            // Initialize particles' positions and momenta
-            #pragma omp parallel
-            {
-                uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());  // Seed for random number generation
-
-                // Initialize particle positions
-                #pragma omp for schedule(static)
-                for (int i = 0; i < N_PART; i++) {
-                    double randomValue = d_xorshift(&seed);  // Generate random position
-                    x[i] = randomValue * 0.5;
-                }
-
-                // Initialize particle momenta
-                #pragma omp for schedule(static)
-                for (int i = 0; i < N_PART >> 1; i++) {
-                    double randomValue1 = d_xorshift(&seed);
-                    double randomValue2 = d_xorshift(&seed);
-
-                    // Box-Muller transform to generate random momentum values
-                    xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
-                    xi2 = 2.0 * PI * randomValue2;
-
-                    p[2 * i] = xi1 * cos(xi2) * 5.24684E-24;
-                    p[2 * i + 1] = xi1 * sin(xi2) * 5.24684E-24;
-                }
-            }
-
-            /* Update histograms based on particle positions and momenta */
-            #pragma omp parallel for schedule(static)
-            for (int i = 0; i < N_PART; i++) {
-                int h_idx = floor((x[i] + 0.5) * (1.99999999999999 * BINS) + 2.0);
-                int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994 * BINS));
-                int hg_idx = (2 * BINS) * h_idx + g_idx;
-                h[h_idx]++;
-                g[g_idx]++;
-                hg[hg_idx]++;
-            }
-
-            // Calculate total energy and generate histogram file
-            double Et = energy_sum(p, N_PART, evolution, M);
-            X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS, Et);
-            if (X0 == 1) {
-                printf("Error: Chi-square test failed: X0=%1d\n", X0);
-            }
-        }
+        // Initialize particles and histograms
+        initialize_particles_and_histogram(N_PART, x, p, h, g, hg, DxE, DpE, xi1, xi2, evolution, M, BINS);
     } else {
-        // Load particle data from input file if not resuming
+        // Load particle data from input file if
         read_data(inputFilename, x, p, &evolution, N_PART);
     }
 
