@@ -48,8 +48,9 @@ void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, doubl
 }
 
 
-void initialize_particles_and_histogram(int N_PART, double* x, double* p, int* h, int* g, int* hg, double* DxE, double* DpE, double xi1, double xi2, unsigned int evolution, double M, int BINS) {
-    int X0 = 1;     // Control variable for resuming simulation
+void initialize_particles_and_histogram(int N_PART, double* x, double* p, int* h, int* g, int* hg, double* DxE, double* DpE, unsigned int evolution, double M, int BINS) {
+    int X0 = 1;                                 // Control variable for resuming simulation
+    double xi1 = 0.0, xi2 = 0.0;                // Temporary variables for random numbers
 
     while (X0 == 1) {
         // Initialize particles' positions and momenta
@@ -108,7 +109,6 @@ int main() {
     double DT = 0.0, M = 0.0, sigmaL = 0.0;                // Time step, mass, and sigmaL parameter for calculations
 
     // Random number generator and filename parameters
-    double xi1 = 0.0, xi2 = 0.0;                           // Temporary variables for random numbers
     char filename[32];                                     // Filename for saving data
 
     // Simulation constants
@@ -133,10 +133,10 @@ int main() {
     // Initialize histograms and particle arrays
     initialize_histograms(BINS, h, g, hg, DxE, DpE, N_PART);
 
-    /* Resume simulation if required */
+    // Resume simulation if required
     if (resume != 0) {
         // Initialize particles and histograms
-        initialize_particles_and_histogram(N_PART, x, p, h, g, hg, DxE, DpE, xi1, xi2, evolution, M, BINS);
+        initialize_particles_and_histogram(N_PART, x, p, h, g, hg, DxE, DpE, evolution, M, BINS);
     } else {
         // Load particle data from input file if
         read_data(inputFilename, x, p, &evolution, N_PART);
@@ -147,6 +147,8 @@ int main() {
     printf("pmin=%12.9E      d=%9.6E     alfa=%12.9E   Et=%12.9E\n", pmin, d, alfa, Et);
 
     /* ========= Start the main simulation loop ========= */
+    printf("Starting simulation...\n");
+    double xi1 = 0.0, xi2 = 0.0;                // Temporary variables for random numbers
     for (unsigned int j = 0; j < Ntandas; j++) {
         // Iterate through the simulation steps for this round
         long int k;
