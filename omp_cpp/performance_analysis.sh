@@ -3,15 +3,6 @@
 # Set the C++ source file and output binary
 OUTPUT_BINARY="main"
 
-# --------------------- GPROF PROFILING ---------------------
-echo "Running gprof profiling..."
-# Run the program to generate gprof profiling data
-./$OUTPUT_BINARY
-
-# Generate gprof report
-gprof $OUTPUT_BINARY gmon.out > gprof_report.txt
-echo "gprof report generated: gprof_report.txt"
-
 # --------------------- PERF PROFILING ----------------------
 echo "Running perf profiling..."
 # Record performance data with perf
