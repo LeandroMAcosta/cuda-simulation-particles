@@ -61,3 +61,14 @@ hists.eps
 *.dat
 *.png
 *.dmp
+
+# Ignore Valgrind logs and output files
+valgrind.log
+valgrind.out
+*.valgrind
+callgrind*
+
+# Ignore perf data and output files
+perf.data
+perf.data.old
+*.perf
