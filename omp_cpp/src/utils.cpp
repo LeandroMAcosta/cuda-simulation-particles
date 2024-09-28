@@ -1,9 +1,17 @@
+#include <iostream>
+#include <fstream>
+#include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
+#include <omp.h>
 #include "../include/utils.h"
 
-static double d_rand()
-{
+using namespace std;
+
+static double d_rand() {
     srand(time(NULL));
-    return (double)rand() / (double)RAND_MAX;
+    return static_cast<double>(rand()) / static_cast<double>(RAND_MAX);
 }
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
@@ -14,7 +22,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     FILE *inputFile = fopen(filename, "r");
     if (inputFile == NULL)
     {
-        printf("Error al abrir el archivo %s\n", filename);
+        cout << "Error al abrir el archivo " << filename << endl;
         exit(1);
     }
     fscanf(inputFile, " %*[^\n]");
@@ -31,12 +39,12 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     }
     fscanf(inputFile, " %*[^:]: %s %s", du, inputFilename);
     *resume = strcmp(du, "sí");
-    printf("%s lee %s\t", du, inputFilename);
+    cout << du << " lee " << inputFilename << "\t";
     fscanf(inputFile, " %*[^:]: %s %s", du, saveFilename);
-    printf("%s escribe %s\t", du, saveFilename);
+    cout << du << " escribe " << saveFilename << "\t";
     *dump = strcmp(du, "sí");
     fscanf(inputFile, " %*[^:]: %le", sigmaL);
-    printf("sigma(L) = %le\n", *sigmaL);
+    cout << "sigma(L) = " << *sigmaL << endl;
     fclose(inputFile);
 }
 
@@ -45,7 +53,7 @@ void read_data(char filename[], double *x, double *p, unsigned int *evolution, i
     FILE *readFile = fopen(filename, "r");
     if (readFile == NULL)
     {
-        printf("Error al abrir el archivo %s\n", filename);
+        cout << "Error al abrir el archivo " << filename << endl;
         exit(1);
     }
     fread(evolution, sizeof(*evolution), 1, readFile); // lee bien evolution como unsigned int
@@ -54,40 +62,34 @@ void read_data(char filename[], double *x, double *p, unsigned int *evolution, i
     fclose(readFile);
 }
 
-double energy_sum(double *p, int N_PART, unsigned int evolution, double M)
-{
+double energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
     double sumEnergy = 0;
-#pragma omp parallel for reduction(+ : sumEnergy) schedule(static)
-    for (int i = 0; i < N_PART; i++)
-    {
+    #pragma omp parallel for reduction(+ : sumEnergy) schedule(static)
+    for (int i = 0; i < N_PART; i++) {
         sumEnergy += p[i] * p[i];
     }
-    printf("N° de pasos %6d\tEnergía total = %12.9E\n", evolution, sumEnergy / (2 * M));
+    cout << "N° de pasos " << evolution << "\tEnergía total = " << sumEnergy / (2 * M) << endl;
     return sumEnergy / (2 * M);
 }
 
-void save_data(char filename[], double *x, double *p, unsigned int evolution, int N_PART)
-{
-    FILE *saveFile = fopen(filename, "w");
-    if (saveFile == NULL)
-    {
-        printf("Error al abrir el archivo %s\n", filename);
+void save_data(const char filename[], double *x, double *p, unsigned int evolution, int N_PART) {
+    ofstream saveFile(filename, ios::binary);
+    if (!saveFile) {
+        cerr << "Error al abrir el archivo " << filename << endl;
         exit(1);
     }
-    fwrite(&evolution, sizeof(evolution), 1, saveFile);
-    fwrite(x, sizeof(x[0]) * N_PART, 1, saveFile);
+    saveFile.write(reinterpret_cast<const char *>(&evolution), sizeof(evolution));
+    saveFile.write(reinterpret_cast<const char *>(x), sizeof(x[0]) * N_PART);
+
     int Npmod = (0 * N_PART) / (1 << 21);
-    if (evolution % 1000000 == 0 && Npmod > 0)
-    {
+    if (evolution % 1000000 == 0 && Npmod > 0) {
         double f = 0.7071; // fraccion de p+ que queda en p+'
-        double *sqrtp2 = malloc(sizeof(double) * Npmod);
+        double *sqrtp2 = static_cast<double *>(malloc(sizeof(double) * Npmod));
         int np = 0;
         int i0 = d_rand() * N_PART;
         int i = i0;
-        while ((np < Npmod) && (i < N_PART))
-        {
-            if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24)
-            {
+        while ((np < Npmod) && (i < N_PART)) {
+            if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24) {
                 sqrtp2[np] = sqrt(1.0 - f * f) * p[i];
                 np++;
                 p[i] *= f;
@@ -95,8 +97,7 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
             i++;
         }
         i = 0;
-        while ((np < Npmod) && (i < i0))
-        {
+        while ((np < Npmod) && (i < i0)) {
             if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24)
             {
                 sqrtp2[np] = sqrt(1.0 - f * f) * p[i];
@@ -106,47 +107,20 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
             i++;
         }
         Npmod = np;
-        printf("np=%d   (2.43-2.73)sigma\n", np);
-        np = 0; // repartimos 0.5*E+ en 2 partes iguales
-        while ((np < Npmod) && (i < N_PART))
-        {
+        cout << "np=" << np << "   (2.43-2.73)sigma" << endl;
+        np = 0;
+        while ((np < Npmod) && (i < N_PART)) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
-            {
+            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) {
                 p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }
             i++;
         }
         i = 0;
-        while (np < Npmod)
-        {
+        while (np < Npmod) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
-            {
-                p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
-                np++;
-            }
-            i++;
-        }
-        np = 0; // otra vez la busqueda de p chicos, porque repartimos la otra
-                // mitad de E+
-        while ((np < Npmod) && (i < N_PART))
-        {
-            int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
-            {
-                p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
-                np++;
-            }
-            i++;
-        }
-        i = 0;
-        while (np < Npmod)
-        {
-            int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
-            {
+            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) {
                 p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }
@@ -154,8 +128,7 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         }
         free(sqrtp2);
     }
-    fwrite(p, sizeof(p[0]) * N_PART, 1, saveFile);
-    fclose(saveFile);
+    saveFile.write(reinterpret_cast<const char *>(p), sizeof(p[0]) * N_PART);
 }
 
 int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS, double Et)
@@ -210,6 +183,9 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
             "=%9.6f  chiIx =%9.6f  chiPx =%9.6f  chi2p =%9.6f  chiIp =%9.6f  "
             "chiPp =%9.6f  Et=%12.9E\n",
             chi2x, chi2xr, chiIx, chiPx, chi2p, chiIp, chiPp, Et);
+    cout << "#   x    poblacion       p      poblacion    chi2x =" << chi2x << "  chi2xr =" << chi2xr << "  chiIx ="
+         << chiIx << "  chiPx =" << chiPx << "  chi2p =" << chi2p << "  chiIp =" << chiIp << "  chiPp =" << chiPp
+         << "  Et=" << Et << endl;
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.5015, h[0], -2.997e-23, g[0]);
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.5005, h[1], -2.997e-23, g[0]);
     for (int i = 0; i < BINS << 1; i++)

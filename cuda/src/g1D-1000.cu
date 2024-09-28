@@ -1,6 +1,11 @@
-#include "../include/utils.h"
+#include <cuda_runtime.h>
+#include <cmath>
+#include <cstring>
+#include <cstdio>
 #include <omp.h>
 
+#include "../include/utils.h"
+#include <cuda_kernels.h>
 
 // Function to allocate memory for simulation arrays
 bool allocate_memory(int N_PART, int BINS, double** x, double** p, double** DxE, double** DpE, int** h, int** g, int** hg) {
@@ -17,88 +22,6 @@ bool allocate_memory(int N_PART, int BINS, double** x, double** p, double** DxE,
     return (*x && *p && *DxE && *DpE && *h && *g && *hg);
 }
 
-
-void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, double* DpE, int N_PART) {
-    /* Initialize histograms for momentum distribution */
-    #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
-    for (int i = 0; i < BINS << 1; i++) {
-        // Calculate Gaussian distribution for momentum
-        double numerator = 6.0E-26 * N_PART;
-        double denominator = 5.24684E-24 * sqrt(2.0 * PI);
-        double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / 5.24684E-24, 2) / 2;
-        DpE[i] = (numerator / denominator) * exp(exponent);
-    }
-
-    /* Initialize histograms for position distribution */
-    #pragma omp parallel for simd schedule(static)
-    for (int i = 2; i < (BINS + 1) << 1; i++) {
-        DxE[i] = 1.0E-3 * N_PART;  // Set position histogram with initial values
-    }
-
-    // Set boundary conditions for position histograms
-    DxE[0] = 0.0;
-    DxE[1] = 0.0;
-    DxE[2 * BINS + 2] = 0.0;
-    DxE[2 * BINS + 3] = 0.0;
-
-    /* Initialize the histograms (h, g, hg) to zero */
-    memset(h, 0, (2 * BINS + 4) * sizeof(int));
-    memset(g, 0, (2 * BINS) * sizeof(int));
-    memset(hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
-}
-
-
-void initialize_particles_and_histogram(int N_PART, double* x, double* p, int* h, int* g, int* hg, double* DxE, double* DpE, unsigned int evolution, double M, int BINS) {
-    int X0 = 1;                                 // Control variable for resuming simulation
-    double xi1 = 0.0, xi2 = 0.0;                // Temporary variables for random numbers
-
-    while (X0 == 1) {
-        // Initialize particles' positions and momenta
-        #pragma omp parallel
-        {
-            uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());  // Seed for random number generation
-
-            // Initialize particle positions
-            #pragma omp for schedule(static)
-            for (int i = 0; i < N_PART; i++) {
-                double randomValue = d_xorshift(&seed);  // Generate random position
-                x[i] = randomValue * 0.5;
-            }
-
-            // Initialize particle momenta
-            #pragma omp for schedule(static)
-            for (int i = 0; i < N_PART >> 1; i++) {
-                double randomValue1 = d_xorshift(&seed);
-                double randomValue2 = d_xorshift(&seed);
-
-                // Box-Muller transform to generate random momentum values
-                xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
-                xi2 = 2.0 * PI * randomValue2;
-
-                p[2 * i] = xi1 * cos(xi2) * 5.24684E-24;
-                p[2 * i + 1] = xi1 * sin(xi2) * 5.24684E-24;
-            }
-        }
-
-        /* Update histograms based on particle positions and momenta */
-        #pragma omp parallel for schedule(static)
-        for (int i = 0; i < N_PART; i++) {
-            int h_idx = floor((x[i] + 0.5) * (1.99999999999999 * BINS) + 2.0);
-            int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994 * BINS));
-            int hg_idx = (2 * BINS) * h_idx + g_idx;
-            h[h_idx]++;
-            g[g_idx]++;
-            hg[hg_idx]++;
-        }
-
-        // Calculate total energy and generate histogram file
-        double Et = energy_sum(p, N_PART, evolution, M);
-        X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS, Et);
-        if (X0 == 1) {
-            printf("Error: Chi-square test failed: X0=%1d\n", X0);
-        }
-    }
-}
 
 int main() {
     // Initialize basic simulation variables

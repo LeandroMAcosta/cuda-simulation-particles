@@ -158,22 +158,17 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
     fclose(saveFile);
 }
 
-int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS, double Et)
-{
+int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS, double Et) {
     double chi2x = 0.0, chi2xr = 0.0, chi2p = 0.0, chiIp = 0.0, chiPp = 0.0, chiIx = 0.0, chiPx = 0.0;
 
-    if (strcmp(filename, "X0000000.dat") == 0)
-    {
-#pragma omp parallel for reduction(+ : chi2x) schedule(static)
-        for (int i = BINS ; i < 2 * BINS; i++)
-        {
+    if (strcmp(filename, "X0000000.dat") == 0) {
+        #pragma omp parallel for reduction(+ : chi2x) schedule(static)
+        for (int i = BINS ; i < 2 * BINS; i++) {
             chi2x += pow(h[i] - 2 * DxE[i], 2) / (2 * DxE[i]);
         }
         chi2x /= BINS;
-    }
-    else
-    {
-#pragma omp parallel for reduction(+ : chi2x) schedule(static)
+    } else {
+        #pragma omp parallel for reduction(+ : chi2x) schedule(static)
         for (int i = 4; i < 2 * BINS; i++)
         {
             chi2x += pow(h[i] - DxE[i], 2) / DxE[i];
@@ -181,18 +176,17 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
         chi2x /= (2.0 * BINS - 4);
         chi2xr = chi2x; // chi2xr = chi2x reducido
     }
-#pragma omp parallel for reduction(+ : chi2p) schedule(static)
-    for (int i = 0; i < 2 * (BINS - BORDES); i++)
-    {
+    #pragma omp parallel for reduction(+ : chi2p) schedule(static)
+    for (int i = 0; i < 2 * (BINS - BORDES); i++) {
         chi2p += pow(g[i + BORDES] - DpE[i + BORDES], 2) / DpE[i + BORDES];
     }
-#pragma omp parallel for reduction(+ : chiIp, chiPp) schedule(static)
+    #pragma omp parallel for reduction(+ : chiIp, chiPp) schedule(static)
     for (int i = 0; i < (BINS - BORDES); i++)
     {
         chiIp += pow(g[i + BORDES] - g[2 * BINS - 1 - BORDES - i], 2) / DpE[i + BORDES];
         chiPp += pow(g[i + BORDES] + g[2 * BINS - 1 - BORDES - i] - 2.0 * DpE[i + BORDES], 2) / DpE[i + BORDES];
     }
-#pragma omp parallel for reduction(+ : chiIx, chiPx) schedule(static)
+    #pragma omp parallel for reduction(+ : chiIx, chiPx) schedule(static)
     for (int i = 4; i <= BINS + 1; i++)
     {
         chiIx += pow(h[i] - h[2 * BINS + 3 - i], 2) / DxE[i];
@@ -212,10 +206,9 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
             chi2x, chi2xr, chiIx, chiPx, chi2p, chiIp, chiPp, Et);
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.5015, h[0], -2.997e-23, g[0]);
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.5005, h[1], -2.997e-23, g[0]);
-    for (int i = 0; i < BINS << 1; i++)
-    {
-        fprintf(hist, "%8.5f %6d %24.12E %6d\n", (0.5 * i / BINS - 0.4995), h[i + 2], (3.0e-23 * i / BINS - 2.997e-23),
-                g[i]);
+    
+    for (int i = 0; i < BINS << 1; i++){
+        fprintf(hist, "%8.5f %6d %24.12E %6d\n", (0.5 * i / BINS - 0.4995), h[i + 2], (3.0e-23 * i / BINS - 2.997e-23), g[i]);
     }
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.5005, h[2 * BINS + 2], 2.997e-23, g[2 * BINS - 1]);
     fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.5015, h[2 * BINS + 3], 2.997e-23, g[2 * BINS - 1]);

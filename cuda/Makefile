@@ -5,7 +5,7 @@ OMP := -Xcompiler=-fopenmp
 
 TARGET := main
 
-SRC := src/g1D-1000.cu src/utils.cu
+SRC := src/g1D-1000.cu src/utils.cu src/cuda_functions.cu
 OBJ := $(SRC:.cu=.o)
 
 all: $(TARGET)
