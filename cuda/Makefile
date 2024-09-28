@@ -1,11 +1,12 @@
 CC := nvcc
-CFLAGS := -Xcompiler="-Wall -Wextra -pedantic -O3 -march=native -ffast-math" # Removed -Werror for CUDA
+CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -pedantic -O3 -march=native -ffast-math" # Removed -Werror for CUDA
 CLIBS := -lm -lgomp
 OMP := -Xcompiler=-fopenmp
 
 TARGET := main
 
-SRC := src/g1D-1000.cu src/utils.cu src/cuda_functions.cu
+SRC := src/main.cu src/utils.cu
+# SRC := src/main.cu src/utils.cu src/cuda_kernels.cu
 OBJ := $(SRC:.cu=.o)
 
 all: $(TARGET)
