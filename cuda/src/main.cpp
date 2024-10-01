@@ -6,7 +6,7 @@
 #include <cuda_runtime.h>
 // #include <cuda_kernels.h>
 
-#include "../include/utils.h"
+#include "./include/utils.h"
 
 // // Function to allocate memory for simulation arrays
 // bool allocate_memory(int N_PART, int BINS, double** x, double** p, double** DxE, double** DpE, int** h, int** g, int** hg) {
