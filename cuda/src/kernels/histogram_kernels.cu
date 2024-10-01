@@ -12,3 +12,10 @@ __global__ void calculateDpE(double *DpE, int N_PART, int BINS) {
         DpE[i] = (numerator / denominator) * exp(exponent);
     }
 }
+
+__global__ void calculateDxE(double *DxE, int N_PART, int BINS) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= 2 && i < (BINS + 1) << 1) {
+        DxE[i] = 1.0E-3 * N_PART;
+    }
+}

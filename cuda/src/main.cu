@@ -33,7 +33,7 @@ int main()
     // Unified Memory Allocation for arrays using cudaMallocManaged
     double *x, *p, *DxE, *DpE;
     int *h, *g, *hg;
-    
+
     cudaMallocManaged(&x, sizeof(double) * N_PART);
     cudaMallocManaged(&p, sizeof(double) * N_PART);
     cudaMallocManaged(&DxE, sizeof(double) * (2 * BINS + 4));
@@ -44,14 +44,13 @@ int main()
 
     // Launch CUDA kernel for parallel DpE computation
     int threadsPerBlock = 256;
-    int blocksPerGrid = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
-    calculateDpE<<<blocksPerGrid, threadsPerBlock>>>(DpE, N_PART, BINS);
 
-    // Parallel loop to calculate DxE array using OpenMP SIMD
-    #pragma omp parallel for simd schedule(static)
-    for (int i = 2; i < (BINS + 1) << 1; i++) {
-        DxE[i] = 1.0E-3 * N_PART;
-    }
+    int blocksPerGridForDpE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
+    calculateDpE<<<blocksPerGridForDpE, threadsPerBlock>>>(DpE, N_PART, BINS);
+
+    // Launch CUDA kernel for DxE calculation
+    int blocksPerGridForDxE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
+    calculateDxE<<<blocksPerGridForDxE, threadsPerBlock>>>(DxE, N_PART, BINS);
 
     DxE[0] = 0.0;
     DxE[1] = 0.0;
