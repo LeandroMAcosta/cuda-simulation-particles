@@ -4,7 +4,7 @@ CLIBS := -lm -lgomp
 OMP := -Xcompiler=-fopenmp
 
 # Target name
-TARGET := main
+TARGET := build/main
 
 # Automatically gather source files
 CPP_SRC := $(wildcard src/*.cpp src/utils/*.cpp)
@@ -35,4 +35,4 @@ format:
 	clang-format -style=Microsoft -i src/*.cu include/*.h
 
 clean:
-	rm -f $(TARGET) build/*.o build/kernels/*.o
+	rm -f build/main build/*.o build/kernels/*.o
