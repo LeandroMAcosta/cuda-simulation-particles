@@ -4,24 +4,9 @@
 #include <omp.h>
 #include <iostream>
 #include <cuda_runtime.h>
-// #include <cuda_kernels.h>
 
 #include "./include/utils.h"
-
-// // Function to allocate memory for simulation arrays
-// bool allocate_memory(int N_PART, int BINS, double** x, double** p, double** DxE, double** DpE, int** h, int** g, int** hg) {
-
-//     /* Allocate memory for simulation arrays */
-//     *x = (double*) malloc(sizeof(double) * N_PART);           // Positions of particles
-//     *p = (double*) malloc(sizeof(double) * N_PART);           // Momenta of particles
-//     *DxE = (double*) malloc(sizeof(double) * (2 * BINS + 4)); // Histogram array for positions
-//     *DpE = (double*) malloc(sizeof(double) * (2 * BINS));     // Histogram array for momenta
-//     *h = (int*) malloc(sizeof(int) * (2 * BINS + 4));         // Position histogram counts
-//     *g = (int*) malloc(sizeof(int) * (2 * BINS));             // Momentum histogram counts
-//     *hg = (int*) malloc(sizeof(int) * (2 * BINS + 4) * (2 * BINS)); // 2D histogram for positions and momenta
-
-//     return (*x && *p && *DxE && *DpE && *h && *g && *hg);
-// }
+#include "./include/histogram_kernels.h"
 
 using namespace std;
 
@@ -45,23 +30,22 @@ int main()
     load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
                               saveFilename, &resume, &dump, &sigmaL);
 
-    // Using malloc for arrays as requested
-    double *x = static_cast<double *>(malloc(sizeof(double) * N_PART));
-    double *p = static_cast<double *>(malloc(sizeof(double) * N_PART));
-    double *DxE = static_cast<double *>(malloc(sizeof(double) * (2 * BINS + 4)));
-    double *DpE = static_cast<double *>(malloc(sizeof(double) * (2 * BINS)));
-    int *h = static_cast<int *>(malloc(sizeof(int) * (2 * BINS + 4)));
-    int *g = static_cast<int *>(malloc(sizeof(int) * (2 * BINS)));
-    int *hg = static_cast<int *>(malloc(sizeof(int) * (2 * BINS + 4) * (2 * BINS)));
+    // Unified Memory Allocation for arrays using cudaMallocManaged
+    double *x, *p, *DxE, *DpE;
+    int *h, *g, *hg;
+    
+    cudaMallocManaged(&x, sizeof(double) * N_PART);
+    cudaMallocManaged(&p, sizeof(double) * N_PART);
+    cudaMallocManaged(&DxE, sizeof(double) * (2 * BINS + 4));
+    cudaMallocManaged(&DpE, sizeof(double) * (2 * BINS));
+    cudaMallocManaged(&h, sizeof(int) * (2 * BINS + 4));
+    cudaMallocManaged(&g, sizeof(int) * (2 * BINS));
+    cudaMallocManaged(&hg, sizeof(int) * (2 * BINS + 4) * (2 * BINS));
 
-    // Parallel loop to calculate DpE array using OpenMP
-    #pragma omp parallel for reduction(+ : DpE[:2 * BINS]) schedule(static)
-    for (int i = 0; i < BINS << 1; i++) {
-        double numerator = 6.0E-26 * N_PART;
-        double denominator = 5.24684E-24 * sqrt(2.0 * M_PI);
-        double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / 5.24684E-24, 2) / 2;
-        DpE[i] = (numerator / denominator) * exp(exponent);
-    }
+    // Launch CUDA kernel for parallel DpE computation
+    int threadsPerBlock = 256;
+    int blocksPerGrid = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
+    calculateDpE<<<blocksPerGrid, threadsPerBlock>>>(DpE, N_PART, BINS);
 
     // Parallel loop to calculate DxE array using OpenMP SIMD
     #pragma omp parallel for simd schedule(static)
@@ -210,14 +194,14 @@ int main()
 
     cout << "Completo evolution = " << evolution << endl;
 
-    // Free allocated memory
-    free(x);
-    free(p);
-    free(DxE);
-    free(DpE);
-    free(h);
-    free(g);
-    free(hg);
+    // Free memory
+    cudaFree(x);
+    cudaFree(p);
+    cudaFree(DxE);
+    cudaFree(DpE);
+    cudaFree(h);
+    cudaFree(g);
+    cudaFree(hg);
 
     return 0;
 }

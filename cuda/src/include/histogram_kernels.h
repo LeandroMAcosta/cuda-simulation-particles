@@ -1,7 +1,6 @@
-// cuda_functions.h
 #ifndef HISTOGRAM_KERNELS_H
 #define HISTOGRAM_KERNELS_H
 
-// void initialize_histograms(int BINS, int* h, int* g, int* hg, double* DxE, double* DpE, int N_PART);
+__global__ void calculateDpE(double *DpE, int N_PART, int BINS);
 
-#endif  // HISTOGRAM_KERNELS_H
+#endif
