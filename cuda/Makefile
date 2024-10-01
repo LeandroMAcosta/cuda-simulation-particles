@@ -1,5 +1,5 @@
 CC := nvcc
-CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -pedantic -O3 -march=native -ffast-math -g"
+CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -pedantic -O3 -march=native -ffast-math -g" -arch=sm_61
 
 CLIBS := -lm -lgomp
 OMP := -Xcompiler=-fopenmp
