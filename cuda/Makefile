@@ -1,5 +1,5 @@
 CC := nvcc
-CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -pedantic -O3 -march=native -ffast-math" # Removed -Werror for CUDA
+CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -pedantic -O3 -march=native -ffast-math"
 CLIBS := -lm -lgomp
 OMP := -Xcompiler=-fopenmp
 
@@ -10,9 +10,12 @@ TARGET := main
 CPP_SRC := $(wildcard src/*.cpp src/utils/*.cpp)
 CU_SRC := $(wildcard src/kernels/*.cu)
 
-# Object files
-CPP_OBJ := $(CPP_SRC:.cpp=.o)
-CU_OBJ := $(CU_SRC:.cu=.o)
+# Object files in ./build/ folder
+CPP_OBJ := $(CPP_SRC:src/%.cpp=build/%.o)
+CU_OBJ := $(CU_SRC:src/kernels/%.cu=build/kernels/%.o)
+
+# Ensure the build directory exists
+$(shell mkdir -p build build/kernels)
 
 all: $(TARGET)
 
@@ -20,17 +23,16 @@ all: $(TARGET)
 $(TARGET): $(CPP_OBJ) $(CU_OBJ)
 	$(CC) $(CFLAGS) $(OMP) -o $@ $^ $(CLIBS)
 
-# Compilation step for C++ source files
-%.o: %.cpp
+# Compilation step for C++ source files, place .o files in build/
+build/%.o: src/%.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Compilation step for CUDA source files
-%.o: %.cu
+# Compilation step for CUDA source files, place .o files in build/kernels/
+build/kernels/%.o: src/kernels/%.cu
 	$(CC) $(CFLAGS) $(OMP) -c -o $@ $<
-
 
 format:
 	clang-format -style=Microsoft -i src/*.cu include/*.h
 
 clean:
-	rm -f $(TARGET) $(OBJ)
+	rm -f $(TARGET) build/*.o build/kernels/*.o
