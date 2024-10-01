@@ -1,0 +1,19 @@
+N° de pasos 10000       Energía total = 4.339979e-15
+#   x    poblacion       p      poblacion    chi2x =9.467491e+01  chi2xr =9.467491e+01  chiIx =5.341998e-01  chiPx =1.888156e+02  chi2p =1.221109e+03  chiIp =4.202087e+02  chiPp =2.022009e+03  Et=4.339979e-15
+Completo evolution = 10000
+
+ Performance counter stats for './main':
+
+         48,089.63 msec task-clock                       #   23.580 CPUs utilized             
+             1,271      context-switches                 #   26.430 /sec                      
+                14      cpu-migrations                   #    0.291 /sec                      
+             5,376      page-faults                      #  111.791 /sec                      
+   136,394,481,116      cycles                           #    2.836 GHz                       
+   253,955,316,736      instructions                     #    1.86  insn per cycle            
+    42,330,671,506      branches                         #  880.245 M/sec                     
+        10,584,636      branch-misses                    #    0.03% of all branches           
+
+       2.039401862 seconds time elapsed
+
+      47.499926000 seconds user
+       0.587257000 seconds sys
