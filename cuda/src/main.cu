@@ -12,7 +12,7 @@ using namespace std;
 
 int main()
 {
-    int N_THREADS = 0, N_PART = 0, BINS = 0, steps[500], resume = 0, dump = 0;
+    int N_THREADS = 0, N_PART = 0, BINS = 0, resume = 0, dump = 0;
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
     double DT = 0.0, M = 0.0, sigmaL = 0.0;
@@ -25,25 +25,23 @@ int main()
     unsigned int evolution = 0u;
     double pmin = 2.0E-026, pmax = 3.0E-023;
 
-    char data_filename[] = "datos.in";
+    int *steps;
+    cudaMallocManaged(&steps, sizeof(int) * 500);
 
+    char data_filename[] = "datos.in";
     load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
                               saveFilename, &resume, &dump, &sigmaL);
 
     // Unified Memory Allocation for arrays using cudaMallocManaged
-    double *x, *p, *DxE, *DpE;
-    int *h, *g, *hg;
 
+    double *x, *p, *DxE, *DpE;
     cudaMallocManaged(&x, sizeof(double) * N_PART);
     cudaMallocManaged(&p, sizeof(double) * N_PART);
     cudaMallocManaged(&DxE, sizeof(double) * (2 * BINS + 4));
     cudaMallocManaged(&DpE, sizeof(double) * (2 * BINS));
-    cudaMallocManaged(&h, sizeof(int) * (2 * BINS + 4));
-    cudaMallocManaged(&g, sizeof(int) * (2 * BINS));
-    cudaMallocManaged(&hg, sizeof(int) * (2 * BINS + 4) * (2 * BINS));
 
     // Launch CUDA kernel for parallel DpE computation
-    int threadsPerBlock = 256;
+    int threadsPerBlock = 512;
 
     int blocksPerGridForDpE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
     calculateDpE<<<blocksPerGridForDpE, threadsPerBlock>>>(DpE, N_PART, BINS);
@@ -58,9 +56,10 @@ int main()
     DxE[2 * BINS + 3] = 0.0;
 
     // Initialize h, g, hg arrays using memset
-    memset(h, 0, (2 * BINS + 4) * sizeof(int));
-    memset(g, 0, (2 * BINS) * sizeof(int));
-    memset(hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
+    int *h, *g, *hg;
+    cudaMallocManaged(&h, sizeof(int) * (2 * BINS + 4));
+    cudaMallocManaged(&g, sizeof(int) * (2 * BINS));
+    cudaMallocManaged(&hg, sizeof(int) * (2 * BINS + 4) * (2 * BINS));
 
     // Check for resume condition
     if (resume != 0) {
@@ -119,47 +118,12 @@ int main()
         long int k;
         int signop;
 
-        #pragma omp parallel shared(x, p)
-        {
-            uint32_t seed = static_cast<uint32_t>(time(NULL) + omp_get_thread_num());
+        // Kernel launch parameters
+        int numBlocks = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
 
-            #pragma omp for private(k, signop) schedule(dynamic)
-            for (int i = 0; i < N_PART; ++i) {
-                double x_tmp = x[i];
-                double p_tmp = p[i];
-
-                for (int step = 0; step < steps[j]; step++) {
-                    x_tmp += p_tmp * DT / M;
-                    signop = copysign(1.0, p_tmp);
-                    k = trunc(x_tmp + 0.5 * signop);
-
-                    if (k != 0) {
-                        double randomValue = d_xorshift(&seed);
-                        xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
-                        randomValue = d_xorshift(&seed);
-                        xi2 = 2.0 * M_PI * randomValue;
-                        double deltaX = sqrt(labs(k)) * xi1 * cos(xi2) * sigmaL;
-                        deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
-                        x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
-
-                        if (fabs(x_tmp) > 0.502) {
-                            x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
-                        }
-                        p_tmp = fabs(p_tmp);
-
-                        for (int l = 1; l <= labs(k); l++) {
-                            double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
-                            randomValue = d_xorshift(&seed);
-                            p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
-                        }
-                        p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
-                    }
-                }
-
-                x[i] = x_tmp;
-                p[i] = p_tmp;
-            }
-        }
+        // Launch kernel
+        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(j, x, p, DxE, DpE, h, g, hg, N_PART, steps, DT, M, sigmaL, alfa, pmin, pmax);
+        cudaDeviceSynchronize();
 
         // Parallel loop to update histograms
         #pragma omp parallel for schedule(static)
@@ -201,6 +165,14 @@ int main()
     cudaFree(h);
     cudaFree(g);
     cudaFree(hg);
+
+
+    // Check for any device errors (after synchronization)
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("CUDA Error after synchronization: %s\n", cudaGetErrorString(err));
+        exit(1);
+    }
 
     return 0;
 }

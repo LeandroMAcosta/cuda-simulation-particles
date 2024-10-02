@@ -5,4 +5,8 @@ __global__ void calculateDpE(double *DpE, int N_PART, int BINS);
 
 __global__ void calculateDxE(double *DxE, int N_PART, int BINS);
 
+__global__ void simulate_particle_motion(int j, double *x, double *p, double *DxE, double *DpE, int *h, int *g,
+                                int *hg, int N_PART, int steps[], double DT, double M, double sigmaL,
+                                double alfa, double pmin, double pmax);
+
 #endif

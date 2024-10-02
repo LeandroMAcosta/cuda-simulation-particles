@@ -34,3 +34,13 @@ $(UTILS_OBJ_DIR)/utils.o: $(UTILS_DIR)/utils.cpp $(DEPS)
 
 clean:
 	rm -rf $(BUILD_DIR) $(TARGET)
+
+
+run: $(TARGET)
+	./$(TARGET)
+
+run_output: $(TARGET)
+	./$(TARGET) > output.txt
+
+graph: run_output
+	gnuplot graph.plt
