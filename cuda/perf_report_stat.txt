@@ -1,8 +1,9 @@
 no lee retoma.dmp	no escribe graba.dmp	sigma(L) = 0.001
-N° de pasos 0	Energía total = 4.34659e-15
-#   x    poblacion       p      poblacion    chi2x =449.128  chi2xr =0  chiIx =1930.74  chiPx =434.087  chi2p =735.072  chiIp =0.530826  chiPp =1469.61  Et=4.34659e-15
-N° de pasos 0	Energía total = 4.34659e-15
-pmin=2.000000e-26 d=1.000000e-72 alfa=1.000000e-04 Et=4.346592e-15
-N° de pasos 10000	Energía total = 4.346591e-15
-#   x    poblacion       p      poblacion    chi2x =8.344720e+01  chi2xr =8.344720e+01  chiIx =4.701006e-01  chiPx =1.664243e+02  chi2p =1.172898e+03  chiIp =4.687735e+02  chiPp =1.877022e+03  Et=4.346591e-15
+Initializing particles...
+N° de pasos 0	Energía total = 1.18494e-14
+#   x    poblacion       p      poblacion    chi2x =7160.98  chi2xr =0  chiIx =3351.24  chiPx =7172.89  chi2p =6950.79  chiIp =3359.37  chiPp =10542.2  Et=1.18494e-14
+N° de pasos 0	Energía total = 1.18494e-14
+pmin=2.000000e-26 d=1.000000e-72 alfa=1.000000e-04 Et=1.184937e-14
+N° de pasos 10000	Energía total = 1.184937e-14
+#   x    poblacion       p      poblacion    chi2x =2.527072e+03  chi2xr =2.527072e+03  chiIx =7.568697e+02  chiPx =4.297274e+03  chi2p =6.618252e+03  chiIp =2.955354e+03  chiPp =1.028115e+04  Et=1.184937e-14
 Completo evolution = 10000

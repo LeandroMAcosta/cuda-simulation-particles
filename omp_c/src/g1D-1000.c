@@ -31,16 +31,18 @@ int main()
     int *g = malloc(sizeof(int) * (2 * BINS));
     int *hg = malloc(sizeof(int) * (2 * BINS + 4) * (2 * BINS));
 
-    #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
-    for (int i = 0; i < BINS << 1; i++) {
+#pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
+    for (int i = 0; i < BINS << 1; i++)
+    {
         double numerator = 6.0E-26 * N_PART;
         double denominator = 5.24684E-24 * sqrt(2.0 * PI);
         double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / 5.24684E-24, 2) / 2;
         DpE[i] = (numerator / denominator) * exp(exponent);
     }
 
-    #pragma omp parallel for simd schedule(static)
-    for (int i = 2; i < (BINS + 1) << 1; i++) {
+#pragma omp parallel for simd schedule(static)
+    for (int i = 2; i < (BINS + 1) << 1; i++)
+    {
         DxE[i] = 1.0E-3 * N_PART;
     }
 
@@ -53,19 +55,21 @@ int main()
     memset(g, 0, (2 * BINS) * sizeof(int));
     memset(hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
 
-    if (resume != 0) {
-        while (X0 == 1) {
-            // initialize particles
-            #pragma omp parallel
+    if (resume != 0)
+    {
+        while (X0 == 1)
+        {
+// initialize particles
+#pragma omp parallel
             {
                 uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-                #pragma omp for schedule(static)
+#pragma omp for schedule(static)
                 for (int i = 0; i < N_PART; i++)
                 {
                     double randomValue = d_xorshift(&seed);
                     x[i] = randomValue * 0.5;
                 }
-                #pragma omp for schedule(static)
+#pragma omp for schedule(static)
                 for (int i = 0; i < N_PART >> 1; i++)
                 {
                     double randomValue1 = d_xorshift(&seed);
@@ -79,8 +83,9 @@ int main()
                 }
             }
 
-            #pragma omp parallel for schedule(static)
-            for (int i = 0; i < N_PART; i++) {
+#pragma omp parallel for schedule(static)
+            for (int i = 0; i < N_PART; i++)
+            {
                 int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
                 int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS));
                 int hg_idx = (2 * BINS) * h_idx + g_idx;
@@ -90,11 +95,14 @@ int main()
             }
             double Et = energy_sum(p, N_PART, evolution, M);
             X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS, Et);
-            if (X0 == 1) {
+            if (X0 == 1)
+            {
                 printf("Falló algún chi2: X0=%1d\n", X0);
             }
         }
-    } else {
+    }
+    else
+    {
         read_data(inputFilename, x, p, &evolution, N_PART);
     }
 
@@ -102,37 +110,44 @@ int main()
     printf("pmin=%12.9E      d=%9.6E     alfa=%12.9E   Et=%12.9E\n", pmin, d, alfa, Et);
 
     // Work code here:
-    for (unsigned int j = 0; j < Ntandas; j++) {
+    for (unsigned int j = 0; j < Ntandas; j++)
+    {
         // iter_in_range code here:
         long int k;
         int signop;
-        #pragma omp parallel shared(x, p) {
+#pragma omp parallel shared(x, p)
+        {
             uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-            #pragma omp for private(k, signop) schedule(dynamic)
-            for (int i = 0; i < N_PART; ++i) {
+#pragma omp for private(k, signop) schedule(dynamic)
+            for (int i = 0; i < N_PART; ++i)
+            {
                 double x_tmp = x[i];
                 double p_tmp = p[i];
-                //	printf("i=%d    x=%9.6f  p=%12.9E\n",i,x[i],p[i]);
-                for (int step = 0; step < steps[j]; step++) {
+//	printf("i=%d    x=%9.6f  p=%12.9E\n",i,x[i],p[i]);
+                for (int step = 0; step < steps[j]; step++)
+                {
                     x_tmp += p_tmp * DT / M; // ¡OJO que p_tmp tiene un SIGNO!
                     signop = copysign(1.0, p_tmp);
                     k = trunc(x_tmp + 0.5 * signop);
-                    // if ( (x[i]!=x[i]) || (p[i]!=p[i]) || (x_tmp!=x_tmp) || (p_tmp!=p_tmp) ) { printf("i=%d   k=%ld   x_tmp=%9.6f   p_tmp=%12.9E   step=%d\n",i,k,x_tmp,p_tmp,step); step = steps[j]; }
-                    if (k != 0) {
-  			            double randomValue = d_xorshift(&seed);
+//     if ( (x[i]!=x[i]) || (p[i]!=p[i]) || (x_tmp!=x_tmp) || (p_tmp!=p_tmp) ) { printf("i=%d   k=%ld   x_tmp=%9.6f   p_tmp=%12.9E   step=%d\n",i,k,x_tmp,p_tmp,step); step = steps[j]; }
+                    if (k != 0)
+                    {
+  			double randomValue = d_xorshift(&seed);
                         double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
                         randomValue = d_xorshift(&seed);
                         double xi2 = 2.0 * PI * randomValue;
                         double deltaX = sqrt(labs(k)) * xi1 * cos(xi2) * sigmaL;
                         deltaX = (fabs(deltaX) > 1.0 ? 1.0*copysign(1.0,deltaX) : deltaX);
                         x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
-                        if (fabs(x_tmp) > 0.502) {
+                        if (fabs(x_tmp) > 0.502)
+                        {
                             x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
                         }
                         p_tmp = fabs(p_tmp); // <-- le saco el signo
-                        for (int l = 1; l <= labs(k); l++) {
+                        for (int l = 1; l <= labs(k); l++)
+                        {
                             double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
-                            //  if (2.0*DeltaE >= p_tmp*p_tmp) { printf("i=%d  DeltaE=%12.9E   p_tmp=%12.9E\n",i,DeltaE,p_tmp); }
+//  if (2.0*DeltaE >= p_tmp*p_tmp) { printf("i=%d  DeltaE=%12.9E   p_tmp=%12.9E\n",i,DeltaE,p_tmp); }
                             randomValue = d_xorshift(&seed);
                             p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                         }
@@ -141,13 +156,14 @@ int main()
                 }
                 x[i] = x_tmp;
                 p[i] = p_tmp;
-                //    printf("i=%d  x[i]=%9.6f  x_tmp=%9.6f  p[i]=%12.9E  p_tmp=%12.9E\n",i,x[i],x_tmp,p[i],p_tmp);
+//    printf("i=%d  x[i]=%9.6f  x_tmp=%9.6f  p[i]=%12.9E  p_tmp=%12.9E\n",i,x[i],x_tmp,p[i],p_tmp);
             }
         }
-        // End of iter_in_range code.
-        #pragma omp for schedule(static)
-        for (int i = 0; i < N_PART; i++) {
-            // { printf("x=%9.6f   h_idx=%9.6f\n",x[i],floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0)); }
+// End of iter_in_range code.
+#pragma omp for schedule(static)
+        for (int i = 0; i < N_PART; i++)
+        {
+//     { printf("x=%9.6f   h_idx=%9.6f\n",x[i],floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0)); }
             int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
             int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS));
             int hg_idx = (2 * BINS) * h_idx + g_idx;
@@ -156,14 +172,18 @@ int main()
             hg[hg_idx]++;
         }
         evolution += steps[j];
-        if (evolution < 10000000) {
+        if (evolution < 10000000)
+        {
             sprintf(filename, "X%07d.dat", evolution);
-        } else {
+        }
+        else
+        {
             sprintf(filename, "X%1.3e.dat", (double)evolution);
             char *e = memchr(filename, 'e', 32);
             strcpy(e + 1, e + 3);
         }
-        if (dump == 0) {
+        if (dump == 0)
+        {
             save_data(saveFilename, x, p, evolution, N_PART);
         }
         double Et = energy_sum(p, N_PART, evolution, M);

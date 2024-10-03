@@ -1,27 +1,23 @@
-# Compiler and flags
-CXX = g++
-CXXFLAGS = -fopenmp -std=c++14 -Wall -Iinclude
+CC := gcc
+CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -O3 -march=native -ffast-math
+CLIBS := -lm
+OMP := -fopenmp
 
-# Target executable
 TARGET := main
 
-# Source and object files
-SRC := src/g1D-1000.cpp src/utils.cpp
+SRC := src/g1D-1000.c src/utils.c
 OBJ := $(SRC:.c=.o)
 
-# Default rule to build the target
 all: $(TARGET)
 
-# Linking the object files to create the final executable
 $(TARGET): $(OBJ)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) $(OMP) -o $@ $^ $(CLIBS)
 
-# Compile each source file into object files
 %.o: %.c
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(OMP) -c -o $@ $<
 
-# Clean up generated files
+format:
+	clang-format -style=Microsoft -i src/*.c include/*.h
+
 clean:
-	rm -f $(OBJ) $(TARGET)
-
-.PHONY: all clean
+	rm -f $(TARGET) $(OBJ)
