@@ -153,3 +153,27 @@ __global__ void simulate_particle_motion(int j, double *x, double *p, double *Dx
     x[idx] = x_tmp;
     p[idx] = p_tmp;
 }
+
+// CUDA kernel for energy sum calculation
+__global__ void energy_sum_kernel(double *p, double *partialSum, int N_PART) {
+    extern __shared__ double sharedData[];
+    int tid = threadIdx.x;
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    // Load data into shared memory
+    sharedData[tid] = (i < N_PART) ? p[i] * p[i] : 0.0;
+    __syncthreads();
+    
+    // Perform reduction within each block
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sharedData[tid] += sharedData[tid + s];
+        }
+        __syncthreads();
+    }
+    
+    // Write result of this block's partial sum to global memory
+    if (tid == 0) {
+        partialSum[blockIdx.x] = sharedData[0];
+    }
+}

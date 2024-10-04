@@ -5,7 +5,11 @@
 #include <cstring>
 #include <ctime>
 #include <omp.h>
+#include <cuda_runtime.h>
 #include "../include/utils.h"
+#include "../include/histogram_kernels.h"
+
+
 
 using namespace std;
 
@@ -60,13 +64,52 @@ void read_data(char filename[], double *x, double *p, unsigned int *evolution, i
     fclose(readFile);
 }
 
+// double energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
+//     double sumEnergy = 0;
+//     #pragma omp parallel for reduction(+ : sumEnergy) schedule(static)
+//     for (int i = 0; i < N_PART; i++) {
+//         sumEnergy += p[i] * p[i];
+//     }
+//     cout << "N° de pasos " << evolution << "\tEnergía total = " << sumEnergy / (2 * M) << endl;
+//     return sumEnergy / (2 * M);
+// }
+
 double energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
-    double sumEnergy = 0;
-    #pragma omp parallel for reduction(+ : sumEnergy) schedule(static)
-    for (int i = 0; i < N_PART; i++) {
-        sumEnergy += p[i] * p[i];
+    double *d_p, *d_partialSum;
+    double *partialSum;
+    int threadsPerBlock = 256; // Define the number of threads per block
+    int blocksPerGrid = (N_PART + threadsPerBlock - 1) / threadsPerBlock; // Calculate grid size
+
+    // Allocate host memory for partial sums
+    partialSum = (double*)malloc(blocksPerGrid * sizeof(double));
+
+    // Allocate device memory
+    cudaMalloc(&d_p, N_PART * sizeof(double));
+    cudaMalloc(&d_partialSum, blocksPerGrid * sizeof(double));
+
+    // Copy input array to device
+    cudaMemcpy(d_p, p, N_PART * sizeof(double), cudaMemcpyHostToDevice);
+
+    // Launch kernel
+    size_t shared_memory_size = threadsPerBlock * sizeof(double);
+    energy_sum_kernel<<<blocksPerGrid, threadsPerBlock, shared_memory_size>>>(d_p, d_partialSum, N_PART);
+
+    // Copy partial sums back to host
+    cudaMemcpy(partialSum, d_partialSum, blocksPerGrid * sizeof(double), cudaMemcpyDeviceToHost);
+
+    // Final reduction on the host
+    double sumEnergy = 0.0;
+    for (int i = 0; i < blocksPerGrid; i++) {
+        sumEnergy += partialSum[i];
     }
-    cout << "N° de pasos " << evolution << "\tEnergía total = " << sumEnergy / (2 * M) << endl;
+
+    // Clean up memory
+    free(partialSum);
+    cudaFree(d_p);
+    cudaFree(d_partialSum);
+
+    // Output the result
+    std::cout << "N° de pasos " << evolution << "\tEnergía total = " << sumEnergy / (2 * M) << std::endl;
     return sumEnergy / (2 * M);
 }
 

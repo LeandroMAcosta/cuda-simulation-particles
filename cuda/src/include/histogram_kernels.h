@@ -15,4 +15,6 @@ __global__ void init_p_kernel(double *p, uint32_t base_seed, int N_PART);
 
 __global__ void update_histograms_kernel(double *x, double *p, int *h, int *g, int *hg, int N_PART, int BINS);
 
+__global__ void energy_sum_kernel(double *p, double *partial_sum, int N_PART);
+
 #endif

@@ -45,12 +45,9 @@ int main()
 
     int blocksPerGridForDpE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
     calculateDpE<<<blocksPerGridForDpE, threadsPerBlock>>>(DpE, N_PART, BINS);
-    // cudaDeviceSynchronize();
 
-    // Launch CUDA kernel for DxE calculation
     int blocksPerGridForDxE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
     calculateDxE<<<blocksPerGridForDxE, threadsPerBlock>>>(DxE, N_PART, BINS);
-    cudaDeviceSynchronize();
 
     DxE[0] = 0.0;
     DxE[1] = 0.0;
@@ -65,9 +62,6 @@ int main()
 
     // Check for resume condition
     if (resume != 0) {
-        // wait for calculateDpE and calculateDxE kernels to finish
-        // cudaDeviceSynchronize();
-
         while (X0 == 1) {
             // Initialize particles
             uint32_t base_seed_1 = static_cast<uint32_t>(time(NULL));

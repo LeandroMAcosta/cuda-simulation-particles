@@ -32,9 +32,9 @@ $(KERNELS_OBJ_DIR)/histogram_kernels.o: $(KERNELS_DIR)/histogram_kernels.cu $(DE
 	@mkdir -p $(KERNELS_OBJ_DIR)
 	$(CC) $(CFLAGS) $(OMP) -I$(INCLUDE_DIR) -c $(KERNELS_DIR)/histogram_kernels.cu -o $@
 
-$(UTILS_OBJ_DIR)/utils.o: $(UTILS_DIR)/utils.cpp $(DEPS)
+$(UTILS_OBJ_DIR)/utils.o: $(UTILS_DIR)/utils.cu $(DEPS)
 	@mkdir -p $(UTILS_OBJ_DIR)
-	$(CC) $(CFLAGS) $(OMP) -I$(INCLUDE_DIR) -c $(UTILS_DIR)/utils.cpp -o $@
+	$(CC) $(CFLAGS) $(OMP) -I$(INCLUDE_DIR) -c $(UTILS_DIR)/utils.cu -o $@
 
 clean:
 	@echo "Cleaning up..."
