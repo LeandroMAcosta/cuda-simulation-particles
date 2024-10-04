@@ -81,13 +81,6 @@ int main()
             update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, h, g, hg, N_PART, BINS);
             cudaDeviceSynchronize();
 
-            // Check for any device errors (after synchronization)
-            cudaError_t err = cudaGetLastError();
-            if (err != cudaSuccess) {
-                printf("CUDA Error after synchronization: %s\n", cudaGetErrorString(err));
-                exit(1);
-            }
-
             double Et = energy_sum(p, N_PART, evolution, M);
             X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS, Et);
             if (X0 == 1) {
@@ -114,16 +107,9 @@ int main()
         simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(j, x, p, DxE, DpE, h, g, hg, N_PART, steps, DT, M, sigmaL, alfa, pmin, pmax);
         cudaDeviceSynchronize();
 
-        // Parallel loop to update his tograms
-        #pragma omp parallel for schedule(static)
-        for (int i = 0; i < N_PART; i++) {
-            int h_idx = static_cast<int>(floor((x[i] + 0.5) * (1.99999999999999 * BINS) + 2.0));
-            int g_idx = static_cast<int>(floor((p[i] / 3.0e-23 + 1) * (0.999999999999994 * BINS)));
-            int hg_idx = (2 * BINS) * h_idx + g_idx;
-            h[h_idx]++;
-            g[g_idx]++;
-            hg[hg_idx]++;
-        }
+        int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
+        update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, h, g, hg, N_PART, BINS);
+        cudaDeviceSynchronize();
 
         evolution += steps[j];
         if (evolution < 10000000) {
@@ -155,18 +141,15 @@ int main()
     cudaFree(g);
     cudaFree(hg);
 
-
     // Check for any device errors (after synchronization)
     cudaError_t err = cudaGetLastError();
     if (err != cudaSuccess) {
-        printf("CUDA Error after synchronization: %s\n", cudaGetErrorString(err));
+        printf("CUDA Failed: %s\n", cudaGetErrorString(err));
         exit(1);
     }
 
     return 0;
 }
-
-
 
 /* para graficar en el gnuplot: (sacando un archivo "hists.eps")
 set terminal postscript enhanced color eps 20
