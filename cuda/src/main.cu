@@ -1,7 +1,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdio>
-#include <omp.h>
+// #include <omp.h>
 #include <iostream>
 #include <cuda_runtime.h>
 

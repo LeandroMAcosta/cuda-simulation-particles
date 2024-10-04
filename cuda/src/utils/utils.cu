@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
-#include <omp.h>
+// #include <omp.h>
 #include <cuda_runtime.h>
 #include "../include/utils.h"
 #include "../include/histogram_kernels.h"
@@ -177,13 +177,13 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
     double chi2x = 0.0, chi2xr = 0.0, chi2p = 0.0, chiIp = 0.0, chiPp = 0.0, chiIx = 0.0, chiPx = 0.0;
 
     if (strcmp(filename, "X0000000.dat") == 0) {
-        #pragma omp parallel for reduction(+ : chi2x) schedule(static)
+        // #pragma omp parallel for reduction(+ : chi2x) schedule(static)
         for (int i = BINS ; i < 2 * BINS; i++) {
             chi2x += pow(h[i] - 2 * DxE[i], 2) / (2 * DxE[i]);
         }
         chi2x /= BINS;
     } else {
-        #pragma omp parallel for reduction(+ : chi2x) schedule(static)
+        // #pragma omp parallel for reduction(+ : chi2x) schedule(static)
         for (int i = 4; i < 2 * BINS; i++) {
             chi2x += pow(h[i] - DxE[i], 2) / DxE[i];
         }
@@ -191,18 +191,18 @@ int make_hist(int *h, int *g, int *hg, double *DxE, double *DpE, const char *fil
         chi2xr = chi2x; // chi2xr = chi2x reducido
     }
     
-    #pragma omp parallel for reduction(+ : chi2p) schedule(static)
+    // #pragma omp parallel for reduction(+ : chi2p) schedule(static)
     for (int i = 0; i < 2 * (BINS - BORDES); i++) {
         chi2p += pow(g[i + BORDES] - DpE[i + BORDES], 2) / DpE[i + BORDES];
     }
     
-    #pragma omp parallel for reduction(+ : chiIp, chiPp) schedule(static)
+    // #pragma omp parallel for reduction(+ : chiIp, chiPp) schedule(static)
     for (int i = 0; i < (BINS - BORDES); i++) {
         chiIp += pow(g[i + BORDES] - g[2 * BINS - 1 - BORDES - i], 2) / DpE[i + BORDES];
         chiPp += pow(g[i + BORDES] + g[2 * BINS - 1 - BORDES - i] - 2.0 * DpE[i + BORDES], 2) / DpE[i + BORDES];
     }
 
-    #pragma omp parallel for reduction(+ : chiIx, chiPx) schedule(static)
+    // #pragma omp parallel for reduction(+ : chiIx, chiPx) schedule(static)
     for (int i = 4; i <= BINS + 1; i++) {
         chiIx += pow(h[i] - h[2 * BINS + 3 - i], 2) / DxE[i];
         chiPx += pow(h[i] + h[2 * BINS + 3 - i] - 2.0 * DxE[i], 2) / DxE[i];
