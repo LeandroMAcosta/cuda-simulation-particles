@@ -12,35 +12,31 @@ using namespace std;
 __global__ void calculateDpE(double *DpE, int N_PART, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (i < 2 * BINS) {
-        double numerator = 6.0E-26 * N_PART;
-        double denominator = 5.24684E-24 * sqrt(2.0 * M_PI);
-        double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / 5.24684E-24, 2) / 2;
-        DpE[i] = (numerator / denominator) * exp(exponent);
-    }
+    if (i >= 2 * BINS) return;
+
+    double numerator = 6.0E-26 * N_PART;
+    double denominator = 5.24684E-24 * sqrt(2.0 * M_PI);
+    double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / 5.24684E-24, 2) / 2;
+    DpE[i] = (numerator / denominator) * exp(exponent);
 }
 
 __global__ void calculateDxE(double *DxE, int N_PART, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i >= 2 && i < (BINS + 1) << 1) {
-        DxE[i] = 1.0E-3 * N_PART;
-    }
+    if (i < 2 || i >= (BINS + 1) << 1) return;
+    DxE[i] = 1.0E-3 * N_PART;
 }
 
-// __device__ uint32_t generate_random() {
-//     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-//     uint32_t seed = idx + blockIdx.x + threadIdx.x * 31;
+__device__ uint32_t generate_random(uint32_t base_seed) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t seed = base_seed + idx + blockIdx.x + threadIdx.x;
 
-//     curandState state;
-//     curand_init(seed, idx, 0, &state);  // Initialize random state
+    curandState state;
+    curand_init(seed, idx, 5, &state);
 
-//     // Generate a random 32-bit unsigned integer
-//     int random = curand(&state); 
-//     // printf("[GENERATE RANDOM] random=%d\n", random);
-//     return random;
-// }
+    int random = curand(&state); 
+    return random;
+}
 
-// XORShift function to generate pseudo-random numbers
 __device__ uint32_t xorshift32(uint32_t* seed) {
     uint32_t x = *seed;
     x ^= x << 13;
@@ -50,45 +46,55 @@ __device__ uint32_t xorshift32(uint32_t* seed) {
     return x;
 }
 
-
 __device__ double d_xorshift(uint32_t *seed) {
     uint32_t x = xorshift32(seed);
     return (double)x / (double)UINT32_MAX;
 }
 
-__global__ void init_x_kernel(double* x, uint32_t global_seed, int N_PART) {
+__global__ void init_x_kernel(double* x, uint32_t base_seed, int N_PART) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    
-    if (idx < N_PART) {
-        // Generate a unique seed for each thread using global_seed, blockIdx, and threadIdx
-        uint32_t seed = global_seed + idx;
+    if (idx >= N_PART) return;
 
-        // Generate random value using XORShift and normalize to [0, 1]
-        double randomValue = (double)(xorshift32(&seed)) / UINT32_MAX;
-        x[idx] = randomValue * 0.5;
-    }
+    uint32_t seed = generate_random(base_seed);
+    x[idx] = d_xorshift(&seed) * 0.5;
 }
 
-__global__ void init_p_kernel(double* p, uint32_t global_seed, int N_PART) {
+__global__ void init_p_kernel(double* p,  uint32_t base_seed, int N_PART) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= (N_PART >> 1)) return;
     
-    if (idx < (N_PART >> 1)) {
-        // Generate a unique seed for each thread using global_seed, blockIdx, and threadIdx
-        uint32_t seed = global_seed + idx;
+    uint32_t seed = generate_random(base_seed);
 
-        // Generate two random values using XORShift
-        double randomValue1 = (double)(xorshift32(&seed)) / UINT32_MAX;
-        double randomValue2 = (double)(xorshift32(&seed)) / UINT32_MAX;
+    // Generate two random values using XORShift
+    double randomValue1 = (double)(xorshift32(&seed)) / UINT32_MAX;
+    double randomValue2 = (double)(xorshift32(&seed)) / UINT32_MAX;
 
-        // Box-Muller transform to generate two normally distributed random numbers
-        double xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
-        double xi2 = 2.0 * M_PI * randomValue2;
+    // Box-Muller transform to generate two normally distributed random numbers
+    double xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
+    double xi2 = 2.0 * M_PI * randomValue2;
 
-        // Store the generated values in the p array
-        p[2 * idx] = xi1 * cos(xi2) * 5.24684E-24;
-        p[2 * idx + 1] = xi1 * sin(xi2) * 5.24684E-24;
-    }
+    // Store the generated values in the p array
+    p[2 * idx] = xi1 * cos(xi2) * 5.24684E-24;
+    p[2 * idx + 1] = xi1 * sin(xi2) * 5.24684E-24;
+    
 }
+
+__global__ void update_histograms_kernel(double *x, double *p, int *h, int *g, int *hg, int N_PART, int BINS) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= N_PART) return;
+
+    // Calculate histogram indices based on particle data
+    int h_idx = static_cast<int>(floor((x[idx] + 0.5) * (1.99999999999999 * BINS) + 2.0));
+    int g_idx = static_cast<int>(floor((p[idx] / 3.0e-23 + 1) * (0.999999999999994 * BINS)));
+
+    int hg_idx = (2 * BINS) * h_idx + g_idx;
+
+    // Use atomic operations to avoid race conditions when updating shared memory
+    atomicAdd(&h[h_idx], 1);
+    atomicAdd(&g[g_idx], 1);
+    atomicAdd(&hg[hg_idx], 1);
+}
+
 
 // Kernel function to update positions and momenta
 __global__ void simulate_particle_motion(int j, double *x, double *p, double *DxE, double *DpE, int *h, int *g, int *hg, int N_PART, int *steps, double DT, double M, double sigmaL, double alfa, double pmin, double pmax) {

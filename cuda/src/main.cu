@@ -67,51 +67,25 @@ int main()
     if (resume != 0) {
         while (X0 == 1) {
             // Initialize particles
-            printf("Initializing particles...\n");
-
-            uint32_t seed = static_cast<uint32_t>(time(NULL));
+            uint32_t base_seed_1 = static_cast<uint32_t>(time(NULL));
+            uint32_t base_seed_2 = static_cast<uint32_t>(time(NULL) + 1);
 
             int numBlocksInitX = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
-            init_x_kernel<<<numBlocksInitX, threadsPerBlock>>>(x, seed, N_PART);
-            cudaDeviceSynchronize();
+            init_x_kernel<<<numBlocksInitX, threadsPerBlock>>>(x, base_seed_1, N_PART);
 
             int numBlocksInitP = ((N_PART >> 1) + threadsPerBlock - 1) / threadsPerBlock;
-            init_p_kernel<<<numBlocksInitP, threadsPerBlock>>>(p, seed, N_PART);
+            init_p_kernel<<<numBlocksInitP, threadsPerBlock>>>(p, base_seed_2, N_PART);
             cudaDeviceSynchronize();
 
-            // // Initialize particles
-            // #pragma omp parallel
-            // {
-            //     uint32_t seed = static_cast<uint32_t>(time(NULL) + omp_get_thread_num());
-            //     #pragma omp for schedule(static)
-            //     for (int i = 0; i < N_PART; i++)
-            //     {
-            //         double randomValue = d_xorshift(&seed);
-            //         x[i] = randomValue * 0.5;
-            //     }
-            //     #pragma omp for schedule(static)
-            //     for (int i = 0; i < N_PART >> 1; i++)
-            //     {
-            //         double randomValue1 = d_xorshift(&seed);
-            //         double randomValue2 = d_xorshift(&seed);
+            int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
+            update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, h, g, hg, N_PART, BINS);
+            cudaDeviceSynchronize();
 
-            //         xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
-            //         xi2 = 2.0 * M_PI * randomValue2;
-
-            //         p[2 * i] = xi1 * cos(xi2) * 5.24684E-24;
-            //         p[2 * i + 1] = xi1 * sin(xi2) * 5.24684E-24;
-            //     }
-            // }
-
-            // Parallel loop to update histograms
-            #pragma omp parallel for schedule(static)
-            for (int i = 0; i < N_PART; i++) {
-                int h_idx = static_cast<int>(floor((x[i] + 0.5) * (1.99999999999999 * BINS) + 2.0));
-                int g_idx = static_cast<int>(floor((p[i] / 3.0e-23 + 1) * (0.999999999999994 * BINS)));
-                int hg_idx = (2 * BINS) * h_idx + g_idx;
-                h[h_idx]++;
-                g[g_idx]++;
-                hg[hg_idx]++;
+            // Check for any device errors (after synchronization)
+            cudaError_t err = cudaGetLastError();
+            if (err != cudaSuccess) {
+                printf("CUDA Error after synchronization: %s\n", cudaGetErrorString(err));
+                exit(1);
             }
 
             double Et = energy_sum(p, N_PART, evolution, M);
@@ -140,7 +114,7 @@ int main()
         simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(j, x, p, DxE, DpE, h, g, hg, N_PART, steps, DT, M, sigmaL, alfa, pmin, pmax);
         cudaDeviceSynchronize();
 
-        // Parallel loop to update histograms
+        // Parallel loop to update his tograms
         #pragma omp parallel for schedule(static)
         for (int i = 0; i < N_PART; i++) {
             int h_idx = static_cast<int>(floor((x[i] + 0.5) * (1.99999999999999 * BINS) + 2.0));

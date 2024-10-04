@@ -1,6 +1,6 @@
 set terminal pngcairo size 800,600
 set output 'histogram.png'
-set title "Particle Distribution along x-axis"
+set title "OMP Simulation"
 set xlabel "x (Position)"
 set ylabel "Population"
 set style fill solid 1.0

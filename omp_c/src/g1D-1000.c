@@ -59,17 +59,19 @@ int main()
     {
         while (X0 == 1)
         {
-// initialize particles
-#pragma omp parallel
+            // initialize particles
+            #pragma omp parallel
             {
+                
                 uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-#pragma omp for schedule(static)
+                #pragma omp for schedule(static)
                 for (int i = 0; i < N_PART; i++)
                 {
                     double randomValue = d_xorshift(&seed);
                     x[i] = randomValue * 0.5;
                 }
-#pragma omp for schedule(static)
+
+                #pragma omp for schedule(static)
                 for (int i = 0; i < N_PART >> 1; i++)
                 {
                     double randomValue1 = d_xorshift(&seed);
@@ -83,7 +85,7 @@ int main()
                 }
             }
 
-#pragma omp parallel for schedule(static)
+            #pragma omp parallel for schedule(static)
             for (int i = 0; i < N_PART; i++)
             {
                 int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
