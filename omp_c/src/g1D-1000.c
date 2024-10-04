@@ -162,7 +162,7 @@ int main()
             }
         }
 // End of iter_in_range code.
-#pragma omp for schedule(static)
+        #pragma omp for schedule(static)
         for (int i = 0; i < N_PART; i++)
         {
 //     { printf("x=%9.6f   h_idx=%9.6f\n",x[i],floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0)); }

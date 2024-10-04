@@ -17,6 +17,10 @@ UTILS_OBJ_DIR := $(BUILD_DIR)/utils
 OBJS := $(KERNELS_OBJ_DIR)/histogram_kernels.o $(UTILS_OBJ_DIR)/utils.o
 DEPS := $(INCLUDE_DIR)/constants.h $(INCLUDE_DIR)/histogram_kernels.h $(INCLUDE_DIR)/utils.h
 
+# Test script
+TEST_SCRIPT = ./test_script.sh  # Replace with your actual script name
+
+
 TARGET := main
 
 all: $(TARGET)
@@ -33,8 +37,12 @@ $(UTILS_OBJ_DIR)/utils.o: $(UTILS_DIR)/utils.cpp $(DEPS)
 	$(CC) $(CFLAGS) $(OMP) -I$(INCLUDE_DIR) -c $(UTILS_DIR)/utils.cpp -o $@
 
 clean:
+	@echo "Cleaning up..."
 	rm -rf $(BUILD_DIR) $(TARGET)
 
+test:
+	@echo "Running test script..."
+	bash $(TEST_SCRIPT)
 
 run: $(TARGET)
 	./$(TARGET)

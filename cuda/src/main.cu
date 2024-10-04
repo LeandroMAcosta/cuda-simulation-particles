@@ -45,7 +45,7 @@ int main()
 
     int blocksPerGridForDpE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
     calculateDpE<<<blocksPerGridForDpE, threadsPerBlock>>>(DpE, N_PART, BINS);
-    cudaDeviceSynchronize();
+    // cudaDeviceSynchronize();
 
     // Launch CUDA kernel for DxE calculation
     int blocksPerGridForDxE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
@@ -65,6 +65,9 @@ int main()
 
     // Check for resume condition
     if (resume != 0) {
+        // wait for calculateDpE and calculateDxE kernels to finish
+        // cudaDeviceSynchronize();
+
         while (X0 == 1) {
             // Initialize particles
             uint32_t base_seed_1 = static_cast<uint32_t>(time(NULL));
@@ -75,6 +78,8 @@ int main()
 
             int numBlocksInitP = ((N_PART >> 1) + threadsPerBlock - 1) / threadsPerBlock;
             init_p_kernel<<<numBlocksInitP, threadsPerBlock>>>(p, base_seed_2, N_PART);
+
+            // The kernel  update_histograms_kernel uses x and p arrays to update h, g, hg arrays, so we need to synchronize.
             cudaDeviceSynchronize();
 
             int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
@@ -87,6 +92,7 @@ int main()
                 cout << "Falló algún chi2: X0=" << X0 << endl;
             }
         }
+
     } else {
         // If not resuming, read data
         read_data(inputFilename, x, p, &evolution, N_PART);

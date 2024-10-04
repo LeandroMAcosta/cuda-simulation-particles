@@ -20,4 +20,8 @@ format:
 	clang-format -style=Microsoft -i src/*.c include/*.h
 
 clean:
-	rm -f $(TARGET) $(OBJ)
+	rm -f $(TARGET) $(OBJ) *.png
+
+test:
+	@echo "Running test script..."
+	bash $(TEST_SCRIPT)
