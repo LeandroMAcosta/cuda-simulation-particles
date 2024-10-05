@@ -1,9 +1,9 @@
 #ifndef HISTOGRAM_KERNELS_H
 #define HISTOGRAM_KERNELS_H
 
-__global__ void calculateDpE(double *DpE, int N_PART, int BINS);
+__global__ void init_DpE_kernel(double *DpE, int N_PART, int BINS);
 
-__global__ void calculateDxE(double *DxE, int N_PART, int BINS);
+__global__ void init_DxE_kernel(double *DxE, int N_PART, int BINS);
 
 __global__ void simulate_particle_motion(int j, double *x, double *p, double *DxE, double *DpE, int *h, int *g,
                                 int *hg, int N_PART, int steps[], double DT, double M, double sigmaL,

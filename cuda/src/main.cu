@@ -35,30 +35,29 @@ int main()
     // Unified Memory Allocation for arrays using cudaMallocManaged
 
     double *x, *p, *DxE, *DpE;
-    cudaMallocManaged(&x, sizeof(double) * N_PART);
-    cudaMallocManaged(&p, sizeof(double) * N_PART);
-    cudaMallocManaged(&DxE, sizeof(double) * (2 * BINS + 4));
-    cudaMallocManaged(&DpE, sizeof(double) * (2 * BINS));
+    cudaMalloc(&x, sizeof(double) * N_PART);
+    cudaMalloc(&p, sizeof(double) * N_PART);
+    cudaMalloc(&DxE, sizeof(double) * (2 * BINS + 4));
+    cudaMalloc(&DpE, sizeof(double) * (2 * BINS));
 
     // Launch CUDA kernel for parallel DpE computation
     int threadsPerBlock = 512;
 
     int blocksPerGridForDpE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
-    calculateDpE<<<blocksPerGridForDpE, threadsPerBlock>>>(DpE, N_PART, BINS);
+    init_DpE_kernel<<<blocksPerGridForDpE, threadsPerBlock>>>(DpE, N_PART, BINS);
 
     int blocksPerGridForDxE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
-    calculateDxE<<<blocksPerGridForDxE, threadsPerBlock>>>(DxE, N_PART, BINS);
-
-    DxE[0] = 0.0;
-    DxE[1] = 0.0;
-    DxE[2 * BINS + 2] = 0.0;
-    DxE[2 * BINS + 3] = 0.0;
-
+    init_DxE_kernel<<<blocksPerGridForDxE, threadsPerBlock>>>(DxE, N_PART, BINS);
+  
     // Initialize h, g, hg arrays using memset
     int *h, *g, *hg;
     cudaMallocManaged(&h, sizeof(int) * (2 * BINS + 4));
     cudaMallocManaged(&g, sizeof(int) * (2 * BINS));
     cudaMallocManaged(&hg, sizeof(int) * (2 * BINS + 4) * (2 * BINS));
+
+    cudaMemset(h, 0, (2 * BINS + 4) * sizeof(int));
+    cudaMemset(g, 0, (2 * BINS) * sizeof(int));
+    cudaMemset(hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
 
     // Check for resume condition
     if (resume != 0) {

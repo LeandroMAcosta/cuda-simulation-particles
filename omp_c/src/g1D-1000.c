@@ -31,7 +31,7 @@ int main()
     int *g = malloc(sizeof(int) * (2 * BINS));
     int *hg = malloc(sizeof(int) * (2 * BINS + 4) * (2 * BINS));
 
-#pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
+    #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
     for (int i = 0; i < BINS << 1; i++)
     {
         double numerator = 6.0E-26 * N_PART;
@@ -40,7 +40,7 @@ int main()
         DpE[i] = (numerator / denominator) * exp(exponent);
     }
 
-#pragma omp parallel for simd schedule(static)
+    #pragma omp parallel for simd schedule(static)
     for (int i = 2; i < (BINS + 1) << 1; i++)
     {
         DxE[i] = 1.0E-3 * N_PART;

@@ -9,7 +9,7 @@
 
 using namespace std;
 
-__global__ void calculateDpE(double *DpE, int N_PART, int BINS) {
+__global__ void init_DpE_kernel(double *DpE, int N_PART, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (i >= 2 * BINS) return;
@@ -20,9 +20,16 @@ __global__ void calculateDpE(double *DpE, int N_PART, int BINS) {
     DpE[i] = (numerator / denominator) * exp(exponent);
 }
 
-__global__ void calculateDxE(double *DxE, int N_PART, int BINS) {
+__global__ void init_DxE_kernel(double *DxE, int N_PART, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i < 2 || i >= (BINS + 1) << 1) return;
+    if (i >= (BINS + 1) << 1) return;
+    if (i < 2) {
+        // Maybe just i == 0?
+        DxE[0] = 0.0;
+        DxE[1] = 0.0;
+        DxE[2 * BINS + 2] = 0.0;
+        DxE[2 * BINS + 3] = 0.0;
+    }
     DxE[i] = 1.0E-3 * N_PART;
 }
 
