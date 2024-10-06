@@ -151,7 +151,18 @@ int main()
                             double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
 //  if (2.0*DeltaE >= p_tmp*p_tmp) { printf("i=%d  DeltaE=%12.9E   p_tmp=%12.9E\n",i,DeltaE,p_tmp); }
                             randomValue = d_xorshift(&seed);
-                            p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
+                            // p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
+                            
+                            // [New code]
+                            double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
+                            if (value < 0) {
+                                // Precision error. Set value to 0 to avoid overflow with:
+                                // x_tmp += p_tmp * DT / M;
+                                // k = trunc(x_tmp + 0.5 * signop);
+                                // for (int l = 1; l <= labs(k); ++l)
+                                value = 0;
+                            } 
+                            p_tmp = sqrt(value);
                         }
                         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop; // <-- devuelvo el signo
                     }

@@ -15,7 +15,7 @@ int main()
     int N_THREADS = 0, N_PART = 0, BINS = 0, resume = 0, dump = 0;
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
-    double DT = 0.0, M = 0.0, sigmaL = 0.0;
+    double DT, M, sigmaL = 0.0;
 
     double xi1 = 0.0, xi2 = 0.0;
     int X0 = 1;
@@ -31,6 +31,27 @@ int main()
     char data_filename[] = "datos.in";
     load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
                               saveFilename, &resume, &dump, &sigmaL);
+
+    printf("Parameters loaded from file:\n");
+    printf("N_PART=%d\n", N_PART);
+    printf("BINS=%d\n", BINS);
+    // printf("DT=%f\n", DT);
+    // printf("M=%f\n", M);
+
+    printf("DT=%.60f\n", DT);
+    printf("M=%.60f\n", M);
+    printf("N_THREADS=%d\n", N_THREADS);
+    printf("Ntandas=%d\n", Ntandas);
+    printf("inputFilename=%s\n", inputFilename);
+    printf("saveFilename=%s\n", saveFilename);
+    printf("resume=%d\n", resume);
+    printf("dump=%d\n", dump);
+    printf("sigmaL=%f\n", sigmaL);
+
+    // if (DT == 0.0 || M == 0.0) {
+    //     cout << "Error: DT or M are too small" << endl;
+    //     exit(1);
+    // }
 
     // Unified Memory Allocation for arrays using cudaMallocManaged
 
@@ -148,12 +169,12 @@ int main()
     cudaFree(d_g);
     cudaFree(d_hg);
     
-    // // Check for any device errors (after synchronization)
-    // cudaError_t err = cudaGetLastError();
-    // if (err != cudaSuccess) {
-    //     printf("CUDA Failed: %s\n", cudaGetErrorString(err));
-    //     exit(1);
-    // }
+    // Check for any device errors (after synchronization)
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        printf("CUDA Failed: %s\n", cudaGetErrorString(err));
+        exit(1);
+    }
 
     return 0;
 }

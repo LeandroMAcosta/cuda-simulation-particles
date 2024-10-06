@@ -146,12 +146,25 @@ __global__ void simulate_particle_motion(int j, double *x, double *p, double *Dx
             }
             p_tmp = fabs(p_tmp);
 
-            // printf("[SIMULATE PARTICLE MOTION] k=%d, labs(k)=%ld\n", k, labs(k));
-            for (int l = 1; l <= labs(k); l++) {
-                // printf("[SIMULATE PARTICLE MOTION] j=%d, step=%d, steps[j]=%d\n", j, step, steps[j]);
+            for (int l = 1; l <= labs(k); ++l) {
+                double debug_prev_x = x_tmp;
+                double debug_prev_p = p_tmp;
                 double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
                 randomValue = d_xorshift(&seed);
-                p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
+                double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
+                if (value < 0) {
+                    // Precision error. 
+                    // If p_tmp * p_tmp + DeltaE * (randomValue - 0.5) is negative, then the square root will be NaN.
+                    // If that square root is NaN, in the next iteration, p_tmp will be NaN, and also x_tmp.
+                    // x_tmp += p_tmp * DT / M;
+                    // If x_tmp is NaN, then the next trunc(x_tmp + 0.5 * signop) will be NaN.
+                    // k = trunc(x_tmp + 0.5 * signop);
+                    // if k is NaN, the next for loop will be infinite.
+                    // for (int l = 1; l <= labs(k); ++l)
+                    // So, we need to check if value is negative, and if it is, set it to 0.
+                    value = 0;
+                } 
+                p_tmp = sqrt(value);
             }
             p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
         }

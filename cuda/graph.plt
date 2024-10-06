@@ -9,4 +9,5 @@ set boxwidth 0.001
 p 'X0000000.dat' u 1:2 w l t 'X0000000.dat', \
   'X0000100.dat' u 1:2 w l t 'X0000100.dat', \
   'X0001100.dat' u 1:2 w l t 'X0001100.dat', \
-  'X0011100.dat' u 1:2 w l t 'X0011100.dat'
+  'X0011100.dat' u 1:2 w l t 'X0011100.dat', \
+  'X0111100.dat' u 1:2 w l t 'X0111100.dat'
