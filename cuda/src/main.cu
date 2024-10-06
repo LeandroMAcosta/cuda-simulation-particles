@@ -4,6 +4,7 @@
 // #include <omp.h_h>
 #include <iostream>
 #include <cuda_runtime.h>
+#include <cuda_profiler_api.h>
 
 #include "./include/utils.h"
 #include "./include/histogram_kernels.h"
@@ -132,7 +133,9 @@ int main()
         int numBlocks = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
 
         // Launch kernel
+        // cudaProfilerStart();
         simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(j, x, p, DxE, DpE, d_h, d_g, d_hg, N_PART, steps, DT, M, sigmaL, alfa, pmin, pmax);
+        // cudaProfilerStop();
         cudaDeviceSynchronize();
 
         int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;

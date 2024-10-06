@@ -109,14 +109,7 @@ __global__ void simulate_particle_motion(int j, double *x, double *p, double *Dx
 
     if (idx >= N_PART) return;
 
-    // Initialize seed for random number generator
     uint32_t seed = idx + blockIdx.x + threadIdx.x * 31;
-    curandState state;
-    curand_init(seed, idx, 0, &state);  // Initialize random state
-
-    // Generate a random 32-bit unsigned integer
-    unsigned int random_uint = curand(&state);  // Random 32-bit unsigned integer
-    seed = random_uint;
 
     double x_tmp = x[idx];
     double p_tmp = p[idx];
