@@ -1,7 +1,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdio>
-// #include <omp.h>
+// #include <omp.h_h>
 #include <iostream>
 #include <cuda_runtime.h>
 
@@ -41,7 +41,7 @@ int main()
     cudaMalloc(&DpE, sizeof(double) * (2 * BINS));
 
     // Launch CUDA kernel for parallel DpE computation
-    int threadsPerBlock = 512;
+    int threadsPerBlock = 256;
 
     int blocksPerGridForDpE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
     init_DpE_kernel<<<blocksPerGridForDpE, threadsPerBlock>>>(DpE, N_PART, BINS);
@@ -49,15 +49,23 @@ int main()
     int blocksPerGridForDxE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
     init_DxE_kernel<<<blocksPerGridForDxE, threadsPerBlock>>>(DxE, N_PART, BINS);
   
-    // Initialize h, g, hg arrays using memset
-    int *h, *g, *hg;
-    cudaMallocManaged(&h, sizeof(int) * (2 * BINS + 4));
-    cudaMallocManaged(&g, sizeof(int) * (2 * BINS));
-    cudaMallocManaged(&hg, sizeof(int) * (2 * BINS + 4) * (2 * BINS));
+    // Host arrays (used in CPU)
+    int *h_h, *h_g, *h_hg;
 
-    cudaMemset(h, 0, (2 * BINS + 4) * sizeof(int));
-    cudaMemset(g, 0, (2 * BINS) * sizeof(int));
-    cudaMemset(hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
+    // Initialize host arrays with zeros
+    h_h = (int *)calloc(2 * BINS + 4, sizeof(int));
+    h_g = (int *)calloc(2 * BINS, sizeof(int));
+    h_hg = (int *)calloc((2 * BINS + 4) * (2 * BINS), sizeof(int));
+
+    // Device arrays (used in GPU)
+    int *d_h, *d_g, *d_hg;
+    cudaMalloc(&d_h, sizeof(int) * (2 * BINS + 4));
+    cudaMalloc(&d_g, sizeof(int) * (2 * BINS));
+    cudaMalloc(&d_hg, sizeof(int) * (2 * BINS + 4) * (2 * BINS));
+
+    cudaMemset(d_h, 0, (2 * BINS + 4) * sizeof(int));
+    cudaMemset(d_g, 0, (2 * BINS) * sizeof(int));
+    cudaMemset(d_hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
 
     // Check for resume condition
     if (resume != 0) {
@@ -72,15 +80,15 @@ int main()
             int numBlocksInitP = ((N_PART >> 1) + threadsPerBlock - 1) / threadsPerBlock;
             init_p_kernel<<<numBlocksInitP, threadsPerBlock>>>(p, base_seed_2, N_PART);
 
-            // The kernel  update_histograms_kernel uses x and p arrays to update h, g, hg arrays, so we need to synchronize.
+            // The kernel  update_histograms_kernel uses x and p arrays to update h_h, h_g, h_hg arrays, so we need to synchronize.
             cudaDeviceSynchronize();
 
             int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
-            update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, h, g, hg, N_PART, BINS);
+            update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, d_h, d_g, d_hg, N_PART, BINS);
             cudaDeviceSynchronize();
 
             double Et = energy_sum(p, N_PART, evolution, M);
-            X0 = make_hist(h, g, hg, DxE, DpE, "X0000000.dat", BINS, Et);
+            X0 = make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, DxE, DpE, "X0000000.dat", BINS, Et);
             if (X0 == 1) {
                 cout << "Falló algún chi2: X0=" << X0 << endl;
             }
@@ -103,11 +111,11 @@ int main()
         int numBlocks = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
 
         // Launch kernel
-        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(j, x, p, DxE, DpE, h, g, hg, N_PART, steps, DT, M, sigmaL, alfa, pmin, pmax);
+        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(j, x, p, DxE, DpE, d_h, d_g, d_hg, N_PART, steps, DT, M, sigmaL, alfa, pmin, pmax);
         cudaDeviceSynchronize();
 
         int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
-        update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, h, g, hg, N_PART, BINS);
+        update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, d_h, d_g, d_hg, N_PART, BINS);
         cudaDeviceSynchronize();
 
         evolution += steps[j];
@@ -126,7 +134,7 @@ int main()
         }
 
         Et = energy_sum(p, N_PART, evolution, M);
-        make_hist(h, g, hg, DxE, DpE, filename, BINS, Et);
+        make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, DxE, DpE, filename, BINS, Et);
     }
 
     cout << "Completo evolution = " << evolution << endl;
@@ -136,16 +144,16 @@ int main()
     cudaFree(p);
     cudaFree(DxE);
     cudaFree(DpE);
-    cudaFree(h);
-    cudaFree(g);
-    cudaFree(hg);
-
-    // Check for any device errors (after synchronization)
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        printf("CUDA Failed: %s\n", cudaGetErrorString(err));
-        exit(1);
-    }
+    cudaFree(d_h);
+    cudaFree(d_g);
+    cudaFree(d_hg);
+    
+    // // Check for any device errors (after synchronization)
+    // cudaError_t err = cudaGetLastError();
+    // if (err != cudaSuccess) {
+    //     printf("CUDA Failed: %s\n", cudaGetErrorString(err));
+    //     exit(1);
+    // }
 
     return 0;
 }

@@ -290,7 +290,7 @@ __global__ void chiIx_Px_kernel(int *h, double *DxE, double *chiIx, double *chiP
 }
 
 
-int make_hist(int *h_d, int *g_d, int *hg_d, double *DxE, double *DpE, const char *filename, int BINS, double Et) {
+int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, double *DxE, double *DpE, const char *filename, int BINS, double Et) {
     double *d_chi2x, *d_chi2p, *d_chiIp, *d_chiPp, *d_chiIx, *d_chiPx;
 
     // Allocate memory for reduction variables on GPU
@@ -315,9 +315,7 @@ int make_hist(int *h_d, int *g_d, int *hg_d, double *DxE, double *DpE, const cha
     bool isX0000000 = (strcmp(filename, "X0000000.dat") == 0);
 
     // Launch kernels for chi2x calculation
-    chi2x_kernel<<<numBlocksX, blockSize>>>(h_d, DxE, d_chi2x, BINS, isX0000000);
-
-    // Wait for all threads to finish
+    chi2x_kernel<<<numBlocksX, blockSize>>>(d_h, DxE, d_chi2x, BINS, isX0000000);
     cudaDeviceSynchronize();
 
     // Calculate chi2xr if needed
@@ -327,15 +325,15 @@ int make_hist(int *h_d, int *g_d, int *hg_d, double *DxE, double *DpE, const cha
     }
 
     // Launch kernel for chi2p calculation
-    chi2p_kernel<<<numBlocksP, blockSize>>>(g_d, DpE, d_chi2p, BINS);
+    chi2p_kernel<<<numBlocksP, blockSize>>>(d_g, DpE, d_chi2p, BINS);
     cudaDeviceSynchronize();
 
     // Launch kernel for chiIp and chiPp
-    chiIp_Pp_kernel<<<numBlocksP, blockSize>>>(g_d, DpE, d_chiIp, d_chiPp, BINS);
+    chiIp_Pp_kernel<<<numBlocksP, blockSize>>>(d_g, DpE, d_chiIp, d_chiPp, BINS);
     cudaDeviceSynchronize();
 
     // Launch kernel for chiIx and chiPx
-    chiIx_Px_kernel<<<numBlocksX, blockSize>>>(h_d, DxE, d_chiIx, d_chiPx, BINS);
+    chiIx_Px_kernel<<<numBlocksX, blockSize>>>(d_h, DxE, d_chiIx, d_chiPx, BINS);
     cudaDeviceSynchronize();
 
     // Scale results for chi2p, chiIp, chiPp
@@ -344,6 +342,11 @@ int make_hist(int *h_d, int *g_d, int *hg_d, double *DxE, double *DpE, const cha
     *d_chiPp /= (2.0 * (BINS - BORDES));
     *d_chiIx /= (2.0 * (BINS - 2));
     *d_chiPx /= (2.0 * (BINS - 2));
+
+    // Copy the result back to the host
+    cudaMemcpy(h_h, d_h, (2 * BINS + 4) * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_g, d_g, (2 * BINS) * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(h_hg, d_hg, (2 * BINS + 4) * (2 * BINS) * sizeof(int), cudaMemcpyDeviceToHost);
 
     // // Write results to file
     FILE *hist = fopen(filename, "w");
@@ -356,16 +359,16 @@ int make_hist(int *h_d, int *g_d, int *hg_d, double *DxE, double *DpE, const cha
             "chiPp =%9.6f  Et=%12.9E\n",
             *d_chi2x, chi2xr, *d_chiIx, *d_chiPx, *d_chi2p, *d_chiIp, *d_chiPp, Et);
 
-    fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.5015, h_d[0], -2.997e-23, g_d[0]);
-    fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.5005, h_d[1], -2.997e-23, g_d[0]);
+    fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.5015, h_h[0], -2.997e-23, h_g[0]);
+    fprintf(hist, "%8.5f %6d %24.12E %6d\n", -0.5005, h_h[1], -2.997e-23, h_g[0]);
 
     for (int i = 0; i < BINS << 1; i++) {
-        fprintf(hist, "%8.5f %6d %24.12E %6d\n", (0.5 * i / BINS - 0.4995), h_d[i + 2], (3.0e-23 * i / BINS - 2.997e-23),
-                g_d[i]);
+        fprintf(hist, "%8.5f %6d %24.12E %6d\n", (0.5 * i / BINS - 0.4995), h_h[i + 2], (3.0e-23 * i / BINS - 2.997e-23),
+                h_g[i]);
     }
     
-    fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.5005, h_d[2 * BINS + 2], 2.997e-23, g_d[2 * BINS - 1]);
-    fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.5015, h_d[2 * BINS + 3], 2.997e-23, g_d[2 * BINS - 1]);
+    fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.5005, h_h[2 * BINS + 2], 2.997e-23, h_g[2 * BINS - 1]);
+    fprintf(hist, "%8.5f %6d %24.12E %6d\n", 0.5015, h_h[2 * BINS + 3], 2.997e-23, h_g[2 * BINS - 1]);
     fclose(hist);
 
     // Other print statements remain similar...
@@ -378,9 +381,13 @@ int make_hist(int *h_d, int *g_d, int *hg_d, double *DxE, double *DpE, const cha
     cudaFree(d_chiPx);
 
     // Reset memory for h, g, hg
-    cudaMemset(h_d, 0, (2 * BINS + 4) * sizeof(int));
-    cudaMemset(g_d, 0, (2 * BINS) * sizeof(int));
-    cudaMemset(hg_d, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
+    cudaMemset(d_h, 0, (2 * BINS + 4) * sizeof(int));
+    cudaMemset(d_g, 0, (2 * BINS) * sizeof(int));
+    cudaMemset(d_hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
+
+    memset(h_h, 0, (2 * BINS + 4) * sizeof(int));
+    memset(h_g, 0, (2 * BINS) * sizeof(int));
+    memset(h_hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
 
     return 0;
 }
