@@ -5,8 +5,8 @@ __global__ void init_DpE_kernel(double *DpE, int N_PART, int BINS);
 
 __global__ void init_DxE_kernel(double *DxE, int N_PART, int BINS);
 
-__global__ void simulate_particle_motion(int j, double *x, double *p, double *DxE, double *DpE, int *h, int *g,
-                                int *hg, int N_PART, int steps[], double DT, double M, double sigmaL,
+__global__ void simulate_particle_motion(int number_of_steps, double *x, double *p, double *DxE, double *DpE, int *h, int *g,
+                                int *hg, int N_PART, double DT, double M, double sigmaL,
                                 double alfa, double pmin, double pmax);
 
 __global__ void init_x_kernel(double *x, uint32_t base_seed, int N_PART);

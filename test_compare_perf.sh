@@ -24,3 +24,4 @@ fi
 
 
 # nvprof --print-gpu-trace --profile-from-start off ./main
+# nvprof --print-gpu-summary ./main
