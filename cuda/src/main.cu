@@ -16,15 +16,15 @@ int main()
     int N_THREADS = 0, N_PART = 0, BINS = 0, resume = 0, dump = 0;
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
-    double DT, M, sigmaL = 0.0;
+    float DT, M, sigmaL = 0.0;
 
-    double xi1 = 0.0, xi2 = 0.0;
+    float xi1 = 0.0, xi2 = 0.0;
     int X0 = 1;
     char filename[32];
 
-    double d = 1.0e-72, alfa = 1.0e-4;
+    float d = 1.0e-72, alfa = 1.0e-4;
     unsigned int evolution = 0u;
-    double pmin = 2.0E-026, pmax = 3.0E-023;
+    float pmin = 2.0E-026, pmax = 3.0E-023;
 
     int steps[500];
     // cudaMallocManaged(&steps, sizeof(int) * 500);
@@ -51,11 +51,11 @@ int main()
 
     // Unified Memory Allocation for arrays using cudaMallocManaged
 
-    double *x, *p, *DxE, *DpE;
-    cudaMalloc(&x, sizeof(double) * N_PART);
-    cudaMalloc(&p, sizeof(double) * N_PART);
-    cudaMalloc(&DxE, sizeof(double) * (2 * BINS + 4));
-    cudaMalloc(&DpE, sizeof(double) * (2 * BINS));
+    float *x, *p, *DxE, *DpE;
+    cudaMalloc(&x, sizeof(float) * N_PART);
+    cudaMalloc(&p, sizeof(float) * N_PART);
+    cudaMalloc(&DxE, sizeof(float) * (2 * BINS + 4));
+    cudaMalloc(&DpE, sizeof(float) * (2 * BINS));
 
     // Launch CUDA kernel for parallel DpE computation
     int threadsPerBlock = 512;
@@ -104,7 +104,7 @@ int main()
             update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, d_h, d_g, d_hg, N_PART, BINS);
             cudaDeviceSynchronize();
 
-            double Et = energy_sum(p, N_PART, evolution, M);
+            float Et = energy_sum(p, N_PART, evolution, M);
             X0 = make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, DxE, DpE, "X0000000.dat", BINS, Et);
             if (X0 == 1) {
                 cout << "Falló algún chi2: X0=" << X0 << endl;
@@ -116,7 +116,7 @@ int main()
         read_data(inputFilename, x, p, &evolution, N_PART);
     }
 
-    double Et = energy_sum(p, N_PART, evolution, M);
+    float Et = energy_sum(p, N_PART, evolution, M);
     cout << "pmin=" << scientific << pmin << " d=" << d << " alfa=" << alfa << " Et=" << Et << endl;
 
     // Main loop to iterate through Ntandas
@@ -142,7 +142,7 @@ int main()
         if (evolution < 10000000) {
             sprintf(filename, "X%07d.dat", evolution);
         } else {
-            sprintf(filename, "X%1.3e.dat", static_cast<double>(evolution));
+            sprintf(filename, "X%1.3e.dat", static_cast<float>(evolution));
             char *e = static_cast<char*>(memchr(filename, 'e', 32)); // Explicit cast to char*
             if (e) {
                 strcpy(e + 1, e + 3); // Adjusting the position after 'e'
