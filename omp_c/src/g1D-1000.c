@@ -31,7 +31,7 @@ int main()
     int *g = malloc(sizeof(int) * (2 * BINS));
     int *hg = malloc(sizeof(int) * (2 * BINS + 4) * (2 * BINS));
 
-    #pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
+#pragma omp parallel for reduction(+ : DpE[ : 2 * BINS]) schedule(static)
     for (int i = 0; i < BINS << 1; i++)
     {
         double numerator = 6.0E-26 * N_PART;
@@ -40,7 +40,7 @@ int main()
         DpE[i] = (numerator / denominator) * exp(exponent);
     }
 
-    #pragma omp parallel for simd schedule(static)
+#pragma omp parallel for simd schedule(static)
     for (int i = 2; i < (BINS + 1) << 1; i++)
     {
         DxE[i] = 1.0E-3 * N_PART;
@@ -59,19 +59,17 @@ int main()
     {
         while (X0 == 1)
         {
-            // initialize particles
-            #pragma omp parallel
+// initialize particles
+#pragma omp parallel
             {
-                
                 uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-                #pragma omp for schedule(static)
+#pragma omp for schedule(static)
                 for (int i = 0; i < N_PART; i++)
                 {
                     double randomValue = d_xorshift(&seed);
                     x[i] = randomValue * 0.5;
                 }
-
-                #pragma omp for schedule(static)
+#pragma omp for schedule(static)
                 for (int i = 0; i < N_PART >> 1; i++)
                 {
                     double randomValue1 = d_xorshift(&seed);
@@ -85,7 +83,7 @@ int main()
                 }
             }
 
-            #pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static)
             for (int i = 0; i < N_PART; i++)
             {
                 int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
@@ -151,18 +149,7 @@ int main()
                             double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
 //  if (2.0*DeltaE >= p_tmp*p_tmp) { printf("i=%d  DeltaE=%12.9E   p_tmp=%12.9E\n",i,DeltaE,p_tmp); }
                             randomValue = d_xorshift(&seed);
-                            // p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
-                            
-                            // [New code]
-                            double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
-                            if (value < 0) {
-                                // Precision error. Set value to 0 to avoid overflow with:
-                                // x_tmp += p_tmp * DT / M;
-                                // k = trunc(x_tmp + 0.5 * signop);
-                                // for (int l = 1; l <= labs(k); ++l)
-                                value = 0;
-                            } 
-                            p_tmp = sqrt(value);
+                            p_tmp = sqrt(fmax(0.0, p_tmp * p_tmp + DeltaE * (randomValue - 0.5)));
                         }
                         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop; // <-- devuelvo el signo
                     }
@@ -173,7 +160,7 @@ int main()
             }
         }
 // End of iter_in_range code.
-        #pragma omp for schedule(static)
+#pragma omp for schedule(static)
         for (int i = 0; i < N_PART; i++)
         {
 //     { printf("x=%9.6f   h_idx=%9.6f\n",x[i],floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0)); }
