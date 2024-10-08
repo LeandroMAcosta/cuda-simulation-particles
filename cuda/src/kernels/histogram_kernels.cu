@@ -104,19 +104,12 @@ __global__ void update_histograms_kernel(double *x, double *p, int *h, int *g, i
 
 
 // Kernel function to update positions and momenta
-__global__ void simulate_particle_motion(int j, double *x, double *p, double *DxE, double *DpE, int *h, int *g, int *hg, int N_PART, int *steps, double DT, double M, double sigmaL, double alfa, double pmin, double pmax) {
+__global__ void simulate_particle_motion(int number_of_steps, double *x, double *p, double *DxE, double *DpE, int *h, int *g, int *hg, int N_PART, double DT, double M, double sigmaL, double alfa, double pmin, double pmax) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx >= N_PART) return;
 
-    // Initialize seed for random number generator
     uint32_t seed = idx + blockIdx.x + threadIdx.x * 31;
-    curandState state;
-    curand_init(seed, idx, 0, &state);  // Initialize random state
-
-    // Generate a random 32-bit unsigned integer
-    unsigned int random_uint = curand(&state);  // Random 32-bit unsigned integer
-    seed = random_uint;
 
     double x_tmp = x[idx];
     double p_tmp = p[idx];
@@ -124,50 +117,49 @@ __global__ void simulate_particle_motion(int j, double *x, double *p, double *Dx
     int signop, k;
 
     // Main particle loop
-    for (int step = 0; step < steps[j]; ++step) {
+    for (int step = 0; step < number_of_steps; ++step) {
         x_tmp += p_tmp * DT / M;
         signop = copysign(1.0, p_tmp);
         k = trunc(x_tmp + 0.5 * signop);
 
-        if (k != 0) {
-            // Generate two random values using CUDA's curand
-            double randomValue = d_xorshift(&seed);
-            double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
-            randomValue = d_xorshift(&seed);
-            double xi2 = 2.0 * M_PI * randomValue;
-            // double deltaX = sqrt(labs(k)) * xi1 * cos(xi2) * sigmaL;
-            double deltaX = sqrt(fabsf(k)) * xi1 * cos(xi2) * sigmaL;
+        if (k == 0) continue;
 
-            deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
-            x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
+        double randomValue = d_xorshift(&seed);
+        double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
+        randomValue = d_xorshift(&seed);
+        double xi2 = 2.0 * M_PI * randomValue;
+        double deltaX = sqrt(fabsf(k)) * xi1 * cos(xi2) * sigmaL;
 
-            if (fabs(x_tmp) > 0.502) {
-                x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
-            }
-            p_tmp = fabs(p_tmp);
+        deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
+        x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
 
-            for (int l = 1; l <= labs(k); ++l) {
-                double debug_prev_x = x_tmp;
-                double debug_prev_p = p_tmp;
-                double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
-                randomValue = d_xorshift(&seed);
-                double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
-                if (value < 0) {
-                    // Precision error. 
-                    // If p_tmp * p_tmp + DeltaE * (randomValue - 0.5) is negative, then the square root will be NaN.
-                    // If that square root is NaN, in the next iteration, p_tmp will be NaN, and also x_tmp.
-                    // x_tmp += p_tmp * DT / M;
-                    // If x_tmp is NaN, then the next trunc(x_tmp + 0.5 * signop) will be NaN.
-                    // k = trunc(x_tmp + 0.5 * signop);
-                    // if k is NaN, the next for loop will be infinite.
-                    // for (int l = 1; l <= labs(k); ++l)
-                    // So, we need to check if value is negative, and if it is, set it to 0.
-                    value = 0;
-                } 
-                p_tmp = sqrt(value);
-            }
-            p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
+        if (fabs(x_tmp) > 0.502) {
+            x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
         }
+        p_tmp = fabs(p_tmp);
+
+        // labs(k) was always 1, so we can remove the for loop
+        // TODO: Ask
+
+        // for (int l = 1; l <= labs(k); ++l) {
+        double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
+        randomValue = d_xorshift(&seed);
+        double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
+        if (value < 0) {
+            // Precision error. 
+            // If p_tmp * p_tmp + DeltaE * (randomValue - 0.5) is negative, then the square root will be NaN.
+            // If that square root is NaN, in the next iteration, p_tmp will be NaN, and also x_tmp.
+            // x_tmp += p_tmp * DT / M;
+            // If x_tmp is NaN, then the next trunc(x_tmp + 0.5 * signop) will be NaN.
+            // k = trunc(x_tmp + 0.5 * signop);
+            // if k is NaN, the next for loop will be infinite.
+            // for (int l = 1; l <= labs(k); ++l)
+            // So, we need to check if value is negative, and if it is, set it to 0.
+            value = 0;
+        } 
+        p_tmp = sqrt(value);
+        // }
+        p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
     }
     // Update global memory
     x[idx] = x_tmp;

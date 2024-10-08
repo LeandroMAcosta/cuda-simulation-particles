@@ -4,6 +4,7 @@
 // #include <omp.h_h>
 #include <iostream>
 #include <cuda_runtime.h>
+#include <cuda_profiler_api.h>
 
 #include "./include/utils.h"
 #include "./include/histogram_kernels.h"
@@ -25,8 +26,8 @@ int main()
     unsigned int evolution = 0u;
     double pmin = 2.0E-026, pmax = 3.0E-023;
 
-    int *steps;
-    cudaMallocManaged(&steps, sizeof(int) * 500);
+    int steps[500];
+    // cudaMallocManaged(&steps, sizeof(int) * 500);
 
     char data_filename[] = "datos.in";
     load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
@@ -48,11 +49,6 @@ int main()
     printf("dump=%d\n", dump);
     printf("sigmaL=%f\n", sigmaL);
 
-    // if (DT == 0.0 || M == 0.0) {
-    //     cout << "Error: DT or M are too small" << endl;
-    //     exit(1);
-    // }
-
     // Unified Memory Allocation for arrays using cudaMallocManaged
 
     double *x, *p, *DxE, *DpE;
@@ -62,7 +58,7 @@ int main()
     cudaMalloc(&DpE, sizeof(double) * (2 * BINS));
 
     // Launch CUDA kernel for parallel DpE computation
-    int threadsPerBlock = 256;
+    int threadsPerBlock = 512;
 
     int blocksPerGridForDpE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
     init_DpE_kernel<<<blocksPerGridForDpE, threadsPerBlock>>>(DpE, N_PART, BINS);
@@ -132,8 +128,11 @@ int main()
         int numBlocks = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
 
         // Launch kernel
-        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(j, x, p, DxE, DpE, d_h, d_g, d_hg, N_PART, steps, DT, M, sigmaL, alfa, pmin, pmax);
-        cudaDeviceSynchronize();
+        // cudaProfilerStart();
+        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(steps[j], x, p, DxE, DpE, d_h, d_g, d_hg, N_PART, DT, M, sigmaL, alfa, pmin, pmax);
+        // cudaProfilerStop();
+
+        // cudaDeviceSynchronize();
 
         int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
         update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, d_h, d_g, d_hg, N_PART, BINS);
