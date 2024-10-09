@@ -22,7 +22,7 @@ inline double d_xorshift(uint32_t *state)
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
-                               int *resume, int *dump, double *sigmaL);
+                               bool *resume, bool *dump, double *sigmaL);
 
 void read_data(char filename[], double *x, double *p, unsigned int *evolution, int N_PART);
 

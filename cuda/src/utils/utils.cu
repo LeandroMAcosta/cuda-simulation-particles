@@ -4,7 +4,6 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
-// #include <omp.h>
 #include <cuda_runtime.h>
 #include "../include/utils.h"
 #include "../include/histogram_kernels.h"
@@ -20,7 +19,7 @@ static double d_rand() {
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
-                               int *resume, int *dump, double *sigmaL)
+                               bool *resume, bool *dump, double *sigmaL)
 {
     char du[4];
     FILE *inputFile = fopen(filename, "r");
@@ -40,11 +39,12 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
         (*Ntandas)++;
     }
     fscanf(inputFile, " %*[^:]: %s %s", du, inputFilename);
-    *resume = strcmp(du, "sí");
+    // *resume = strcmp(du, "sí");
+    *resume = (strcmp(du, "sí") == 0);
     cout << du << " lee " << inputFilename << "\t";
     fscanf(inputFile, " %*[^:]: %s %s", du, saveFilename);
     cout << du << " escribe " << saveFilename << "\t";
-    *dump = strcmp(du, "sí");
+    *dump = (strcmp(du, "sí") == 0);
     fscanf(inputFile, " %*[^:]: %le", sigmaL);
     cout << "sigma(L) = " << *sigmaL << endl;
     fclose(inputFile);
@@ -63,16 +63,6 @@ void read_data(char filename[], double *x, double *p, unsigned int *evolution, i
     fread(p, sizeof(p[0]) * N_PART, 1, readFile);
     fclose(readFile);
 }
-
-// double energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
-//     double sumEnergy = 0;
-//     #pragma omp parallel for reduction(+ : sumEnergy) schedule(static)
-//     for (int i = 0; i < N_PART; i++) {
-//         sumEnergy += p[i] * p[i];
-//     }
-//     cout << "N° de pasos " << evolution << "\tEnergía total = " << sumEnergy / (2 * M) << endl;
-//     return sumEnergy / (2 * M);
-// }
 
 double energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
     double *d_p, *d_partialSum;
