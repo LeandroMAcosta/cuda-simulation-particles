@@ -20,8 +20,8 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     fscanf(inputFile, " %*[^\n]");
     fscanf(inputFile, " %*[^:]: %d", N_PART);
     fscanf(inputFile, " %*[^:]: %d", BINS);
-    fscanf(inputFile, " %*[^:]: %le", DT);
-    fscanf(inputFile, " %*[^:]: %le", M);
+    fscanf(inputFile, " %*[^:]: %f", DT);
+    fscanf(inputFile, " %*[^:]: %f", M);
     fscanf(inputFile, " %*[^:]: %d", N_THREADS);
     fscanf(inputFile, " %*[^\n]");
     *Ntandas = 0;
@@ -35,7 +35,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     fscanf(inputFile, " %*[^:]: %s %s", du, saveFilename);
     printf("%s escribe %s\t", du, saveFilename);
     *dump = strcmp(du, "sí");
-    fscanf(inputFile, " %*[^:]: %le", sigmaL);
+    fscanf(inputFile, " %*[^:]: %f", sigmaL);
     printf("sigma(L) = %le\n", *sigmaL);
     fclose(inputFile);
 }
