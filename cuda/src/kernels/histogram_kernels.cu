@@ -146,15 +146,15 @@ __global__ void simulate_particle_motion(int number_of_steps, float *x, double *
 
         // labs(k) was always 1, so we can remove the for loop
 
-        // for (int l = 1; l <= labs(k); ++l) {
-        double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
-        randomValue = d_xorshift(&seed);
-        double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
-        if (value < 0) {
-            value = 0;
+        for (int l = 1; l <= labs(k); ++l) {
+            double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
+            randomValue = d_xorshift(&seed);
+            double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
+            if (value < 0) {
+                value = 0;
+            }
+            p_tmp = sqrt(value);
         }
-        p_tmp = sqrt(value);
-        // }
         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
     }
     // Update global memory

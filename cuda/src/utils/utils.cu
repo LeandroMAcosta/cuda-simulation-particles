@@ -50,7 +50,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     fclose(inputFile);
 }
 
-void read_data(char filename[], float *x, double *p, unsigned int *evolution, int N_PART)
+void read_data(char filename[], float *h_x, double *h_p, unsigned int *evolution, int N_PART)
 {
     FILE *readFile = fopen(filename, "r");
     if (readFile == NULL)
@@ -59,8 +59,8 @@ void read_data(char filename[], float *x, double *p, unsigned int *evolution, in
         exit(1);
     }
     fread(evolution, sizeof(*evolution), 1, readFile); // lee bien evolution como unsigned int
-    fread(x, sizeof(x[0]) * N_PART, 1, readFile);
-    fread(p, sizeof(p[0]) * N_PART, 1, readFile);
+    fread(h_x, sizeof(h_x[0]) * N_PART, 1, readFile);
+    fread(h_p, sizeof(h_p[0]) * N_PART, 1, readFile);
     fclose(readFile);
 }
 

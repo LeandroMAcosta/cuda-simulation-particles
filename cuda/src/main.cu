@@ -148,7 +148,7 @@ int main()
         }
 
         if (dump) {
-            cudaMemcpy(h_x, d_x, sizeof(double) * N_PART, cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_x, d_x, sizeof(float) * N_PART, cudaMemcpyDeviceToHost);
             cudaMemcpy(h_p, d_p, sizeof(double) * N_PART, cudaMemcpyDeviceToHost);
             save_data(saveFilename, h_x, d_p, evolution, N_PART);
         }
