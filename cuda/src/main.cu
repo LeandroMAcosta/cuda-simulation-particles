@@ -19,7 +19,7 @@ int main()
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
     
-    double M;
+    float M;
     float DT; 
     float sigmaL = 0.0f;
 
@@ -126,9 +126,6 @@ int main()
 
     // Main loop to iterate through Ntandas
     for (unsigned int j = 0; j < Ntandas; j++) {
-        long int k;
-        int signop;
-
         // Kernel launch parameters
         int numBlocks = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
 

@@ -108,7 +108,7 @@ __global__ void update_histograms_kernel(float *d_x, double *d_p, int *h, int *g
 }
 
 // Kernel function to update positions and momenta
-__global__ void simulate_particle_motion(int number_of_steps, float *d_x, double *d_p, int N_PART, float DT, double M, float sigmaL, float alfa, float pmin, float pmax) {
+__global__ void simulate_particle_motion(int number_of_steps, float *d_x, double *d_p, int N_PART, float DT, float M, float sigmaL, float alfa, float pmin, float pmax) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx >= N_PART) return;
@@ -124,8 +124,8 @@ __global__ void simulate_particle_motion(int number_of_steps, float *d_x, double
     // Main particle loop
     for (int step = 0; step < number_of_steps; ++step) {
         // Operations with x_tmp now involve float
-        x_tmp += p_tmp * (DT / M);  // Cast DT / M to float
-        // x_tmp += (float) (p_tmp * (DT / M));  // Cast DT / M to float
+        x_tmp += p_tmp * (DT / M);
+        // x_tmp += (float) (p_tmp * (DT / M));
         signop = copysign(1.0, p_tmp);  // Keep signop as double
         k = truncf(x_tmp + 0.5f * signop);  // Use truncf for float
 

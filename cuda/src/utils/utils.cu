@@ -17,7 +17,7 @@ static double d_rand() {
     return static_cast<double>(rand()) / static_cast<double>(RAND_MAX);
 }
 
-void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *DT, double *M, int *N_THREADS,
+void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *DT, float *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
                                bool *resume, bool *dump, float *sigmaL)
 {
@@ -31,7 +31,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *D
     fscanf(inputFile, " %*[^:]: %d", N_PART);
     fscanf(inputFile, " %*[^:]: %d", BINS);
     fscanf(inputFile, " %*[^:]: %f", DT);
-    fscanf(inputFile, " %*[^:]: %le", M);
+    fscanf(inputFile, " %*[^:]: %f", M);
     fscanf(inputFile, " %*[^:]: %d", N_THREADS);
     fscanf(inputFile, " %*[^\n]");
     *Ntandas = 0;
@@ -64,7 +64,7 @@ void read_data(char filename[], float *h_x, double *h_p, unsigned int *evolution
     fclose(readFile);
 }
 
-float energy_sum(double *d_p, int N_PART, unsigned int evolution, double M) {
+float energy_sum(double *d_p, int N_PART, unsigned int evolution, float M) {
     double *d_partialSum;
     double *partialSum;
     int threadsPerBlock = 256; // Define the number of threads per block
