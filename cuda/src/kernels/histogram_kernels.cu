@@ -108,7 +108,7 @@ __global__ void update_histograms_kernel(float *x, double *p, int *h, int *g, in
 }
 
 // Kernel function to update positions and momenta
-__global__ void simulate_particle_motion(int number_of_steps, float *x, double *p, double *DxE, double *DpE, int *h, int *g, int *hg, int N_PART, double DT, double M, double sigmaL, double alfa, double pmin, double pmax) {
+__global__ void simulate_particle_motion(int number_of_steps, float *x, double *p, int N_PART, double DT, double M, float sigmaL, float alfa, float pmin, float pmax) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx >= N_PART) return;
@@ -130,11 +130,11 @@ __global__ void simulate_particle_motion(int number_of_steps, float *x, double *
 
         if (k == 0) continue;
 
-        double randomValue = d_xorshift(&seed);
-        double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
-        randomValue = d_xorshift(&seed);
-        double xi2 = 2.0 * M_PI * randomValue;
-        float deltaX = sqrtf(fabsf(k)) * (float)xi1 * cosf((float)xi2) * sigmaL;  // Use float functions
+        float randomValue = f_xorshift(&seed);
+        float xi1 = sqrtf(-2.0f * logf(randomValue + 1E-35f));
+        randomValue = f_xorshift(&seed);
+        float xi2 = 2.0f * (float)M_PI * randomValue;
+        float deltaX = sqrtf(fabsf(k)) * xi1 * cosf((float)xi2) * sigmaL;  // Use float functions
 
         deltaX = (fabsf(deltaX) > 1.0f ? 1.0f * copysignf(1.0f, deltaX) : deltaX);
         x_tmp = (k % 2 ? -1.0f : 1.0f) * (x_tmp - k) + deltaX;
@@ -144,11 +144,9 @@ __global__ void simulate_particle_motion(int number_of_steps, float *x, double *
         }
         p_tmp = fabs(p_tmp);  // Keep p_tmp operations in double
 
-        // labs(k) was always 1, so we can remove the for loop
-
         for (int l = 1; l <= labs(k); ++l) {
-            double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
-            randomValue = d_xorshift(&seed);
+            float DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
+            randomValue = f_xorshift(&seed);
             double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
             if (value < 0) {
                 value = 0;

@@ -19,7 +19,7 @@ static double d_rand() {
 
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
-                               bool *resume, bool *dump, double *sigmaL)
+                               bool *resume, bool *dump, float *sigmaL)
 {
     char du[4];
     FILE *inputFile = fopen(filename, "r");
@@ -45,7 +45,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     fscanf(inputFile, " %*[^:]: %s %s", du, saveFilename);
     cout << du << " escribe " << saveFilename << "\t";
     *dump = (strcmp(du, "sí") == 0);
-    fscanf(inputFile, " %*[^:]: %le", sigmaL);
+    fscanf(inputFile, " %*[^:]: %f", sigmaL);
     cout << "sigma(L) = " << *sigmaL << endl;
     fclose(inputFile);
 }

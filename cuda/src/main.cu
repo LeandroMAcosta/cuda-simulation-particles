@@ -18,15 +18,15 @@ int main()
 
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
-    double DT, M, sigmaL = 0.0;
+    double DT, M = 0.0;
+    float sigmaL = 0.0f;
 
-    double xi1 = 0.0, xi2 = 0.0;
     int X0 = 1;
     char filename[32];
 
-    double d = 1.0e-72, alfa = 1.0e-4;
     unsigned int evolution = 0u;
-    double pmin = 2.0E-026, pmax = 3.0E-023;
+    float alfa = 1.0e-4;
+    float pmin = 2.0E-026, pmax = 3.0E-023;
 
     int steps[500];
     // cudaMallocManaged(&steps, sizeof(int) * 500);
@@ -120,7 +120,7 @@ int main()
     }
 
     double Et = energy_sum(d_p, N_PART, evolution, M);
-    cout << "pmin=" << scientific << pmin << " d=" << d << " alfa=" << alfa << " Et=" << Et << endl;
+    cout << "pmin=" << scientific << pmin << " alfa=" << alfa << " Et=" << Et << endl;
 
     // Main loop to iterate through Ntandas
     for (unsigned int j = 0; j < Ntandas; j++) {
@@ -130,7 +130,7 @@ int main()
         // Kernel launch parameters
         int numBlocks = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
 
-        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(steps[j], d_x, d_p, DxE, DpE, d_h, d_g, d_hg, N_PART, DT, M, sigmaL, alfa, pmin, pmax);
+        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(steps[j], d_x, d_p, N_PART, DT, M, sigmaL, alfa, pmin, pmax);
         cudaDeviceSynchronize();
 
         int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
