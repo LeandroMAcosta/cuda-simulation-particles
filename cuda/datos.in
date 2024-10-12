@@ -6,6 +6,7 @@
 Nº de hilos para la corrida (N_THREADS): 32
 Tandas (nº de pasos) para esta corrida (steps): 
 100 1000 10000 25000 50000
+# 1000000
 #   +1M              +3M                    +6M                             +10M
       Retomar desde un archivo anterior: no graba.dmp
           Volcar los datos a un archivo: no graba.dmp

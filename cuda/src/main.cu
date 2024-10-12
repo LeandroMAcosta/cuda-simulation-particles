@@ -109,7 +109,7 @@ int main()
             update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(d_x, d_p, d_h, d_g, d_hg, N_PART, BINS);
             cudaDeviceSynchronize();
 
-            double Et = energy_sum(d_p, N_PART, evolution, M);
+            float Et = energy_sum(d_p, N_PART, evolution, M);
             X0 = make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, d_DxE, d_DpE, "X0000000.dat", BINS, Et);
             if (X0 == 1) {
                 cout << "Falló algún chi2: X0=" << X0 << endl;
@@ -121,7 +121,7 @@ int main()
         cudaMemcpy(d_p, h_p, sizeof(double) * N_PART, cudaMemcpyHostToDevice);
     }
 
-    double Et = energy_sum(d_p, N_PART, evolution, M);
+    float Et = energy_sum(d_p, N_PART, evolution, M);
     cout << "pmin=" << scientific << pmin << " alfa=" << alfa << " Et=" << Et << endl;
 
     // Main loop to iterate through Ntandas
