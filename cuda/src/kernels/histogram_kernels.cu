@@ -63,12 +63,12 @@ __device__ float f_xorshift(uint32_t *seed) {
     return (float)x / (float)UINT32_MAX;
 }
 
-__global__ void init_x_kernel(float* x, uint32_t base_seed, int N_PART) {
+__global__ void init_x_kernel(float* d_x, uint32_t base_seed, int N_PART) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N_PART) return;
 
     uint32_t seed = generate_random(base_seed);
-    x[idx] = f_xorshift(&seed) * 0.5f;
+    d_x[idx] = f_xorshift(&seed) * 0.5f;
 }
 
 __global__ void init_p_kernel(double* d_p,  uint32_t base_seed, int N_PART) {
@@ -91,12 +91,12 @@ __global__ void init_p_kernel(double* d_p,  uint32_t base_seed, int N_PART) {
     
 }
 
-__global__ void update_histograms_kernel(float *x, double *d_p, int *h, int *g, int *hg, int N_PART, int BINS) {
+__global__ void update_histograms_kernel(float *d_x, double *d_p, int *h, int *g, int *hg, int N_PART, int BINS) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N_PART) return;
 
     // Calculate histogram indices based on particle data
-    int h_idx = static_cast<int>(floorf((x[idx] + 0.5f) * (1.99999999999999f * BINS) + 2.0f));
+    int h_idx = static_cast<int>(floorf((d_x[idx] + 0.5f) * (1.99999999999999f * BINS) + 2.0f));
     int g_idx = static_cast<int>(floor((d_p[idx] / 3.0e-23 + 1) * (0.999999999999994 * BINS)));
 
     int hg_idx = (2 * BINS) * h_idx + g_idx;
@@ -108,7 +108,7 @@ __global__ void update_histograms_kernel(float *x, double *d_p, int *h, int *g, 
 }
 
 // Kernel function to update positions and momenta
-__global__ void simulate_particle_motion(int number_of_steps, float *x, double *d_p, int N_PART, float DT, double M, float sigmaL, float alfa, float pmin, float pmax) {
+__global__ void simulate_particle_motion(int number_of_steps, float *d_x, double *d_p, int N_PART, float DT, double M, float sigmaL, float alfa, float pmin, float pmax) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx >= N_PART) return;
@@ -116,7 +116,7 @@ __global__ void simulate_particle_motion(int number_of_steps, float *x, double *
     uint32_t seed = idx + blockIdx.x + threadIdx.x * 31;
 
     // Change to float for x_tmp since x is now float
-    float x_tmp = x[idx];
+    float x_tmp = d_x[idx];
     double p_tmp = d_p[idx];  // Keep p_tmp as double
 
     int signop, k;
@@ -157,7 +157,7 @@ __global__ void simulate_particle_motion(int number_of_steps, float *x, double *
         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
     }
     // Update global memory
-    x[idx] = x_tmp;  // Store the float result back to x
+    d_x[idx] = x_tmp;  // Store the float result back to x
     d_p[idx] = p_tmp;  // Store the double result back to p
 }
 
