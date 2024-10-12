@@ -17,7 +17,7 @@ static double d_rand() {
     return static_cast<double>(rand()) / static_cast<double>(RAND_MAX);
 }
 
-void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
+void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *DT, double *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
                                bool *resume, bool *dump, float *sigmaL)
 {
@@ -30,7 +30,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     fscanf(inputFile, " %*[^\n]");
     fscanf(inputFile, " %*[^:]: %d", N_PART);
     fscanf(inputFile, " %*[^:]: %d", BINS);
-    fscanf(inputFile, " %*[^:]: %le", DT);
+    fscanf(inputFile, " %*[^:]: %f", DT);
     fscanf(inputFile, " %*[^:]: %le", M);
     fscanf(inputFile, " %*[^:]: %d", N_THREADS);
     fscanf(inputFile, " %*[^\n]");

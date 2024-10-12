@@ -18,15 +18,17 @@ int main()
 
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
-    double DT, M = 0.0;
+    
+    double M;
+    float DT; 
     float sigmaL = 0.0f;
 
     int X0 = 1;
     char filename[32];
 
     unsigned int evolution = 0u;
-    float alfa = 1.0e-4;
-    float pmin = 2.0E-026, pmax = 3.0E-023;
+    float alfa = 1.0e-4f;
+    float pmin = 2.0E-026f, pmax = 3.0E-023f;
 
     int steps[500];
     // cudaMallocManaged(&steps, sizeof(int) * 500);
@@ -54,21 +56,21 @@ int main()
     h_x = (float *)malloc(sizeof(float) * N_PART);
     h_p = (double *)malloc(sizeof(double) * N_PART);
 
-    double *d_p, *DxE, *DpE;
+    double *d_p, *d_DxE, *d_DpE;
     float *d_x;
     cudaMalloc(&d_x, sizeof(float) * N_PART);
     cudaMalloc(&d_p, sizeof(double) * N_PART);
-    cudaMalloc(&DxE, sizeof(double) * (2 * BINS + 4));
-    cudaMalloc(&DpE, sizeof(double) * (2 * BINS));
+    cudaMalloc(&d_DxE, sizeof(double) * (2 * BINS + 4));
+    cudaMalloc(&d_DpE, sizeof(double) * (2 * BINS));
 
-    // Launch CUDA kernel for parallel DpE computation
+    // Launch CUDA kernel for parallel d_DpE computation
     int threadsPerBlock = 512;
 
     int blocksPerGridForDpE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
-    init_DpE_kernel<<<blocksPerGridForDpE, threadsPerBlock>>>(DpE, N_PART, BINS);
+    init_DpE_kernel<<<blocksPerGridForDpE, threadsPerBlock>>>(d_DpE, N_PART, BINS);
 
     int blocksPerGridForDxE = (2 * BINS + threadsPerBlock - 1) / threadsPerBlock;
-    init_DxE_kernel<<<blocksPerGridForDxE, threadsPerBlock>>>(DxE, N_PART, BINS);
+    init_DxE_kernel<<<blocksPerGridForDxE, threadsPerBlock>>>(d_DxE, N_PART, BINS);
   
     // Host arrays (used in CPU)
     int *h_h, *h_g, *h_hg;
@@ -108,7 +110,7 @@ int main()
             cudaDeviceSynchronize();
 
             double Et = energy_sum(d_p, N_PART, evolution, M);
-            X0 = make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, DxE, DpE, "X0000000.dat", BINS, Et);
+            X0 = make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, d_DxE, d_DpE, "X0000000.dat", BINS, Et);
             if (X0 == 1) {
                 cout << "Falló algún chi2: X0=" << X0 << endl;
             }
@@ -154,7 +156,7 @@ int main()
         }
 
         Et = energy_sum(d_p, N_PART, evolution, M);
-        make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, DxE, DpE, filename, BINS, Et);
+        make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, d_DxE, d_DpE, filename, BINS, Et);
     }
 
     cout << "Completo evolution = " << evolution << endl;
@@ -162,8 +164,8 @@ int main()
     // Free memory
     cudaFree(d_x);
     cudaFree(d_p);
-    cudaFree(DxE);
-    cudaFree(DpE);
+    cudaFree(d_DxE);
+    cudaFree(d_DpE);
     cudaFree(d_h);
     cudaFree(d_g);
     cudaFree(d_hg);

@@ -20,7 +20,7 @@ inline double d_xorshift(uint32_t *state)
     return (double)x / (double)UINT32_MAX;
 }
 
-void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *DT, double *M, int *N_THREADS,
+void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *DT, double *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
                                bool *resume, bool *dump, float *sigmaL);
 
