@@ -58,12 +58,17 @@ __device__ double d_xorshift(uint32_t *seed) {
     return (double)x / (double)UINT32_MAX;
 }
 
-__global__ void init_x_kernel(double* x, uint32_t base_seed, int N_PART) {
+__device__ float f_xorshift(uint32_t *seed) {
+    uint32_t x = xorshift32(seed);
+    return (float)x / (float)UINT32_MAX;
+}
+
+__global__ void init_x_kernel(float* x, uint32_t base_seed, int N_PART) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N_PART) return;
 
     uint32_t seed = generate_random(base_seed);
-    x[idx] = d_xorshift(&seed) * 0.5;
+    x[idx] = f_xorshift(&seed) * 0.5f;
 }
 
 __global__ void init_p_kernel(double* p,  uint32_t base_seed, int N_PART) {
@@ -86,12 +91,12 @@ __global__ void init_p_kernel(double* p,  uint32_t base_seed, int N_PART) {
     
 }
 
-__global__ void update_histograms_kernel(double *x, double *p, int *h, int *g, int *hg, int N_PART, int BINS) {
+__global__ void update_histograms_kernel(float *x, double *p, int *h, int *g, int *hg, int N_PART, int BINS) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N_PART) return;
 
     // Calculate histogram indices based on particle data
-    int h_idx = static_cast<int>(floor((x[idx] + 0.5) * (1.99999999999999 * BINS) + 2.0));
+    int h_idx = static_cast<int>(floorf((x[idx] + 0.5f) * (1.99999999999999f * BINS) + 2.0f));
     int g_idx = static_cast<int>(floor((p[idx] / 3.0e-23 + 1) * (0.999999999999994 * BINS)));
 
     int hg_idx = (2 * BINS) * h_idx + g_idx;
@@ -102,25 +107,26 @@ __global__ void update_histograms_kernel(double *x, double *p, int *h, int *g, i
     atomicAdd(&hg[hg_idx], 1);
 }
 
-
 // Kernel function to update positions and momenta
-__global__ void simulate_particle_motion(int number_of_steps, double *x, double *p, double *DxE, double *DpE, int *h, int *g, int *hg, int N_PART, double DT, double M, double sigmaL, double alfa, double pmin, double pmax) {
+__global__ void simulate_particle_motion(int number_of_steps, float *x, double *p, double *DxE, double *DpE, int *h, int *g, int *hg, int N_PART, double DT, double M, double sigmaL, double alfa, double pmin, double pmax) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx >= N_PART) return;
 
     uint32_t seed = idx + blockIdx.x + threadIdx.x * 31;
 
-    double x_tmp = x[idx];
-    double p_tmp = p[idx];
+    // Change to float for x_tmp since x is now float
+    float x_tmp = x[idx];
+    double p_tmp = p[idx];  // Keep p_tmp as double
 
     int signop, k;
 
     // Main particle loop
     for (int step = 0; step < number_of_steps; ++step) {
-        x_tmp += p_tmp * DT / M;
-        signop = copysign(1.0, p_tmp);
-        k = trunc(x_tmp + 0.5 * signop);
+        // Operations with x_tmp now involve float
+        x_tmp += p_tmp * (float)(DT / M);  // Cast DT / M to float
+        signop = copysign(1.0, p_tmp);  // Keep signop as double
+        k = truncf(x_tmp + 0.5f * signop);  // Use truncf for float
 
         if (k == 0) continue;
 
@@ -128,42 +134,32 @@ __global__ void simulate_particle_motion(int number_of_steps, double *x, double 
         double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
         randomValue = d_xorshift(&seed);
         double xi2 = 2.0 * M_PI * randomValue;
-        double deltaX = sqrt(fabsf(k)) * xi1 * cos(xi2) * sigmaL;
+        float deltaX = sqrtf(fabsf(k)) * (float)xi1 * cosf((float)xi2) * sigmaL;  // Use float functions
 
-        deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
-        x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;
+        deltaX = (fabsf(deltaX) > 1.0f ? 1.0f * copysignf(1.0f, deltaX) : deltaX);
+        x_tmp = (k % 2 ? -1.0f : 1.0f) * (x_tmp - k) + deltaX;
 
-        if (fabs(x_tmp) > 0.502) {
-            x_tmp = 1.004 * copysign(1.0, x_tmp) - x_tmp;
+        if (fabsf(x_tmp) > 0.502f) {
+            x_tmp = 1.004f * copysignf(1.0f, x_tmp) - x_tmp;
         }
-        p_tmp = fabs(p_tmp);
+        p_tmp = fabs(p_tmp);  // Keep p_tmp operations in double
 
         // labs(k) was always 1, so we can remove the for loop
-        // TODO: Ask
 
         // for (int l = 1; l <= labs(k); ++l) {
         double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
         randomValue = d_xorshift(&seed);
         double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
         if (value < 0) {
-            // Precision error. 
-            // If p_tmp * p_tmp + DeltaE * (randomValue - 0.5) is negative, then the square root will be NaN.
-            // If that square root is NaN, in the next iteration, p_tmp will be NaN, and also x_tmp.
-            // x_tmp += p_tmp * DT / M;
-            // If x_tmp is NaN, then the next trunc(x_tmp + 0.5 * signop) will be NaN.
-            // k = trunc(x_tmp + 0.5 * signop);
-            // if k is NaN, the next for loop will be infinite.
-            // for (int l = 1; l <= labs(k); ++l)
-            // So, we need to check if value is negative, and if it is, set it to 0.
             value = 0;
-        } 
+        }
         p_tmp = sqrt(value);
         // }
         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
     }
     // Update global memory
-    x[idx] = x_tmp;
-    p[idx] = p_tmp;
+    x[idx] = x_tmp;  // Store the float result back to x
+    p[idx] = p_tmp;  // Store the double result back to p
 }
 
 // CUDA kernel for energy sum calculation

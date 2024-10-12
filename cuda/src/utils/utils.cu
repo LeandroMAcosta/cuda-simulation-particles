@@ -50,7 +50,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     fclose(inputFile);
 }
 
-void read_data(char filename[], double *x, double *p, unsigned int *evolution, int N_PART)
+void read_data(char filename[], float *x, double *p, unsigned int *evolution, int N_PART)
 {
     FILE *readFile = fopen(filename, "r");
     if (readFile == NULL)
@@ -103,7 +103,7 @@ double energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
     return sumEnergy / (2 * M);
 }
 
-void save_data(char filename[], double *x, double *p, unsigned int evolution, int N_PART) {
+void save_data(char filename[], float *x, double *p, unsigned int evolution, int N_PART) {
     ofstream saveFile(filename, ios::binary);
     if (!saveFile) {
         cerr << "Error al abrir el archivo " << filename << endl;

@@ -49,12 +49,14 @@ int main()
     printf("sigmaL=%f\n", sigmaL);
 
     // Unified Memory Allocation for arrays using cudaMallocManaged
-    double *h_x, *h_p;
-    h_x = (double *)malloc(sizeof(double) * N_PART);
+    double *h_p;
+    float *h_x;
+    h_x = (float *)malloc(sizeof(float) * N_PART);
     h_p = (double *)malloc(sizeof(double) * N_PART);
 
-    double *d_x, *d_p, *DxE, *DpE;
-    cudaMalloc(&d_x, sizeof(double) * N_PART);
+    double *d_p, *DxE, *DpE;
+    float *d_x;
+    cudaMalloc(&d_x, sizeof(float) * N_PART);
     cudaMalloc(&d_p, sizeof(double) * N_PART);
     cudaMalloc(&DxE, sizeof(double) * (2 * BINS + 4));
     cudaMalloc(&DpE, sizeof(double) * (2 * BINS));
@@ -113,7 +115,7 @@ int main()
         }
     } else {
         read_data(inputFilename, h_x, h_p, &evolution, N_PART);
-        cudaMemcpy(d_x, h_x, sizeof(double) * N_PART, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_x, h_x, sizeof(float) * N_PART, cudaMemcpyHostToDevice);
         cudaMemcpy(d_p, h_p, sizeof(double) * N_PART, cudaMemcpyHostToDevice);
     }
 
