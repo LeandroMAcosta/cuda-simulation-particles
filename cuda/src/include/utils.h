@@ -24,11 +24,11 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *D
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
                                bool *resume, bool *dump, float *sigmaL);
 
-void read_data(char filename[], float *x, double *p, unsigned int *evolution, int N_PART);
+void read_data(char filename[], float *h_x, double *h_p, unsigned int *evolution, int N_PART);
 
-void save_data(char filename[], float *x, double *p, unsigned int evolution, int N_PART);
+void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution, int N_PART);
 
-float energy_sum(double *p, int N_PART, unsigned int evolution, double M);
+float energy_sum(double *d_p, int N_PART, unsigned int evolution, double M);
 
 int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, double *DxE, double *DpE, const char *filename, int BINS, float Et);
 

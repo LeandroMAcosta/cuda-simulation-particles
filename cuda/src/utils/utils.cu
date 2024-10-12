@@ -64,8 +64,8 @@ void read_data(char filename[], float *h_x, double *h_p, unsigned int *evolution
     fclose(readFile);
 }
 
-float energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
-    double *d_p, *d_partialSum;
+float energy_sum(double *d_p, int N_PART, unsigned int evolution, double M) {
+    double *d_partialSum;
     double *partialSum;
     int threadsPerBlock = 256; // Define the number of threads per block
     int blocksPerGrid = (N_PART + threadsPerBlock - 1) / threadsPerBlock; // Calculate grid size
@@ -74,11 +74,7 @@ float energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
     partialSum = (double*)malloc(blocksPerGrid * sizeof(double));
 
     // Allocate device memory
-    cudaMalloc(&d_p, N_PART * sizeof(double));
     cudaMalloc(&d_partialSum, blocksPerGrid * sizeof(double));
-
-    // Copy input array to device
-    cudaMemcpy(d_p, p, N_PART * sizeof(double), cudaMemcpyHostToDevice);
 
     // Launch kernel
     size_t shared_memory_size = threadsPerBlock * sizeof(double);
@@ -95,7 +91,6 @@ float energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
 
     // Clean up memory
     free(partialSum);
-    cudaFree(d_p);
     cudaFree(d_partialSum);
 
     // Output the result
@@ -103,14 +98,14 @@ float energy_sum(double *p, int N_PART, unsigned int evolution, double M) {
     return (float)(sumEnergy / (2 * M));
 }
 
-void save_data(char filename[], float *x, double *p, unsigned int evolution, int N_PART) {
+void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution, int N_PART) {
     ofstream saveFile(filename, ios::binary);
     if (!saveFile) {
         cerr << "Error al abrir el archivo " << filename << endl;
         exit(1);
     }
     saveFile.write(reinterpret_cast<const char *>(&evolution), sizeof(evolution));
-    saveFile.write(reinterpret_cast<const char *>(x), sizeof(x[0]) * N_PART);
+    saveFile.write(reinterpret_cast<const char *>(h_x), sizeof(h_x[0]) * N_PART);
 
     int Npmod = (0 * N_PART) / (1 << 21);
     if (evolution % 1000000 == 0 && Npmod > 0) {
@@ -120,20 +115,20 @@ void save_data(char filename[], float *x, double *p, unsigned int evolution, int
         int i0 = d_rand() * N_PART;
         int i = i0;
         while ((np < Npmod) && (i < N_PART)) {
-            if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24) {
-                sqrtp2[np] = sqrt(1.0 - f * f) * p[i];
+            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24) {
+                sqrtp2[np] = sqrt(1.0 - f * f) * h_p[i];
                 np++;
-                p[i] *= f;
+                h_p[i] *= f;
             }
             i++;
         }
         i = 0;
         while ((np < Npmod) && (i < i0)) {
-            if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24)
+            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24)
             {
-                sqrtp2[np] = sqrt(1.0 - f * f) * p[i];
+                sqrtp2[np] = sqrt(1.0 - f * f) * h_p[i];
                 np++;
-                p[i] *= f;
+                h_p[i] *= f;
             }
             i++;
         }
@@ -142,8 +137,8 @@ void save_data(char filename[], float *x, double *p, unsigned int evolution, int
         np = 0;
         while ((np < Npmod) && (i < N_PART)) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) {
-                p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
+            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * 5.24684E-24) && (fabs(h_p[i]) < 0.9 * 5.24684E-24)) {
+                h_p[i] = sqrt(h_p[i] * h_p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }
             i++;
@@ -151,8 +146,8 @@ void save_data(char filename[], float *x, double *p, unsigned int evolution, int
         i = 0;
         while (np < Npmod) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) {
-                p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
+            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * 5.24684E-24) && (fabs(h_p[i]) < 0.9 * 5.24684E-24)) {
+                h_p[i] = sqrt(h_p[i] * h_p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }
             i++;
@@ -160,7 +155,7 @@ void save_data(char filename[], float *x, double *p, unsigned int evolution, int
         }
         free(sqrtp2);
     }
-    saveFile.write(reinterpret_cast<const char *>(p), sizeof(p[0]) * N_PART);
+    saveFile.write(reinterpret_cast<const char *>(h_p), sizeof(h_p[0]) * N_PART);
 }
 
 __global__ void chi2x_kernel(int *h, double *DxE, double *chi2x, int BINS, bool isX0000000) {

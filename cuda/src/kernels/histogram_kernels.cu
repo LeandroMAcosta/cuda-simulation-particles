@@ -71,7 +71,7 @@ __global__ void init_x_kernel(float* x, uint32_t base_seed, int N_PART) {
     x[idx] = f_xorshift(&seed) * 0.5f;
 }
 
-__global__ void init_p_kernel(double* p,  uint32_t base_seed, int N_PART) {
+__global__ void init_p_kernel(double* d_p,  uint32_t base_seed, int N_PART) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= (N_PART >> 1)) return;
     
@@ -86,18 +86,18 @@ __global__ void init_p_kernel(double* p,  uint32_t base_seed, int N_PART) {
     double xi2 = 2.0 * M_PI * randomValue2;
 
     // Store the generated values in the p array
-    p[2 * idx] = xi1 * cos(xi2) * 5.24684E-24;
-    p[2 * idx + 1] = xi1 * sin(xi2) * 5.24684E-24;
+    d_p[2 * idx] = xi1 * cos(xi2) * 5.24684E-24;
+    d_p[2 * idx + 1] = xi1 * sin(xi2) * 5.24684E-24;
     
 }
 
-__global__ void update_histograms_kernel(float *x, double *p, int *h, int *g, int *hg, int N_PART, int BINS) {
+__global__ void update_histograms_kernel(float *x, double *d_p, int *h, int *g, int *hg, int N_PART, int BINS) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N_PART) return;
 
     // Calculate histogram indices based on particle data
     int h_idx = static_cast<int>(floorf((x[idx] + 0.5f) * (1.99999999999999f * BINS) + 2.0f));
-    int g_idx = static_cast<int>(floor((p[idx] / 3.0e-23 + 1) * (0.999999999999994 * BINS)));
+    int g_idx = static_cast<int>(floor((d_p[idx] / 3.0e-23 + 1) * (0.999999999999994 * BINS)));
 
     int hg_idx = (2 * BINS) * h_idx + g_idx;
 
@@ -108,7 +108,7 @@ __global__ void update_histograms_kernel(float *x, double *p, int *h, int *g, in
 }
 
 // Kernel function to update positions and momenta
-__global__ void simulate_particle_motion(int number_of_steps, float *x, double *p, int N_PART, float DT, double M, float sigmaL, float alfa, float pmin, float pmax) {
+__global__ void simulate_particle_motion(int number_of_steps, float *x, double *d_p, int N_PART, float DT, double M, float sigmaL, float alfa, float pmin, float pmax) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx >= N_PART) return;
@@ -117,7 +117,7 @@ __global__ void simulate_particle_motion(int number_of_steps, float *x, double *
 
     // Change to float for x_tmp since x is now float
     float x_tmp = x[idx];
-    double p_tmp = p[idx];  // Keep p_tmp as double
+    double p_tmp = d_p[idx];  // Keep p_tmp as double
 
     int signop, k;
 
@@ -158,17 +158,17 @@ __global__ void simulate_particle_motion(int number_of_steps, float *x, double *
     }
     // Update global memory
     x[idx] = x_tmp;  // Store the float result back to x
-    p[idx] = p_tmp;  // Store the double result back to p
+    d_p[idx] = p_tmp;  // Store the double result back to p
 }
 
 // CUDA kernel for energy sum calculation
-__global__ void energy_sum_kernel(double *p, double *partialSum, int N_PART) {
+__global__ void energy_sum_kernel(double *d_p, double *partialSum, int N_PART) {
     extern __shared__ double sharedData[];
     int tid = threadIdx.x;
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     
     // Load data into shared memory
-    sharedData[tid] = (i < N_PART) ? p[i] * p[i] : 0.0;
+    sharedData[tid] = (i < N_PART) ? d_p[i] * d_p[i] : 0.0;
     __syncthreads();
     
     // Perform reduction within each block
