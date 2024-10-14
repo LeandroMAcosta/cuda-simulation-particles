@@ -121,6 +121,8 @@ __global__ void simulate_particle_motion(int number_of_steps, float *d_x, double
 
     int signop, k;
 
+    float deltaX;
+
     // Main particle loop
     for (int step = 0; step < number_of_steps; ++step) {
         // Operations with x_tmp now involve float
@@ -131,11 +133,10 @@ __global__ void simulate_particle_motion(int number_of_steps, float *d_x, double
 
         if (k == 0) continue;
 
-        float randomValue = f_xorshift(&seed);
-        float xi1 = sqrtf(-2.0f * logf(randomValue + 1E-35f));
-        randomValue = f_xorshift(&seed);
-        float xi2 = 2.0f * (float)M_PI * randomValue;
-        float deltaX = sqrtf(fabsf(k)) * xi1 * cosf((float)xi2) * sigmaL;  // Use float functions
+        // float xi1 = sqrtf(-2.0f * logf(f_xorshift(&seed) + 1E-35f));
+        // float xi2 = 2.0f * (float)M_PI * f_xorshift(&seed);
+
+        deltaX = sqrtf(fabsf(k)) * sqrtf(-2.0f * logf(f_xorshift(&seed) + 1E-35f)) * cosf(2.0f * (float)M_PI * f_xorshift(&seed)) * sigmaL;  // Use float functions
 
         deltaX = (fabsf(deltaX) > 1.0f ? 1.0f * copysignf(1.0f, deltaX) : deltaX);
         x_tmp = (k % 2 ? -1.0f : 1.0f) * (x_tmp - k) + deltaX;
@@ -146,13 +147,12 @@ __global__ void simulate_particle_motion(int number_of_steps, float *d_x, double
         p_tmp = fabs(p_tmp);  // Keep p_tmp operations in double
 
         for (int l = 1; l <= labs(k); ++l) {
-            float DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
-            randomValue = f_xorshift(&seed);
-            double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
-            if (value < 0) {
-                value = 0;
-            }
-            p_tmp = sqrt(value);
+            // float DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
+            // double value = p_tmp * p_tmp + DeltaE * (f_xorshift(&seed) - 0.5);
+            // if (value < 0) {
+            //     value = 0;
+            // }
+            p_tmp = sqrt(max(0.0f, p_tmp * p_tmp + alfa * (p_tmp - pmin) * (pmax - p_tmp) * (f_xorshift(&seed) - 0.5)));
         }
         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
     }
