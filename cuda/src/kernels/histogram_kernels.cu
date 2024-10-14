@@ -162,7 +162,7 @@ __global__ void simulate_particle_motion(int number_of_steps, float *d_x, double
 }
 
 // CUDA kernel for energy sum calculation
-__global__ void energy_sum_kernel(double *d_p, double *partialSum, int N_PART) {
+__global__ void energy_sum_kernel(double *d_p, float *partialSum, int N_PART) {
     extern __shared__ double sharedData[];
     int tid = threadIdx.x;
     int i = blockIdx.x * blockDim.x + threadIdx.x;

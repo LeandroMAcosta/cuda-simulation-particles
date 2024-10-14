@@ -65,26 +65,26 @@ void read_data(char filename[], float *h_x, double *h_p, unsigned int *evolution
 }
 
 float energy_sum(double *d_p, int N_PART, unsigned int evolution, float M) {
-    double *d_partialSum;
-    double *partialSum;
+    float *d_partialSum;
+    float *partialSum;
     int threadsPerBlock = 256; // Define the number of threads per block
     int blocksPerGrid = (N_PART + threadsPerBlock - 1) / threadsPerBlock; // Calculate grid size
 
     // Allocate host memory for partial sums
-    partialSum = (double*)malloc(blocksPerGrid * sizeof(double));
+    partialSum = (float*)malloc(blocksPerGrid * sizeof(double));
 
     // Allocate device memory
-    cudaMalloc(&d_partialSum, blocksPerGrid * sizeof(double));
+    cudaMalloc(&d_partialSum, blocksPerGrid * sizeof(float));
 
     // Launch kernel
     size_t shared_memory_size = threadsPerBlock * sizeof(double);
     energy_sum_kernel<<<blocksPerGrid, threadsPerBlock, shared_memory_size>>>(d_p, d_partialSum, N_PART);
 
     // Copy partial sums back to host
-    cudaMemcpy(partialSum, d_partialSum, blocksPerGrid * sizeof(double), cudaMemcpyDeviceToHost);
+    cudaMemcpy(partialSum, d_partialSum, blocksPerGrid * sizeof(float), cudaMemcpyDeviceToHost);
 
     // Final reduction on the host
-    double sumEnergy = 0.0;
+    float sumEnergy = 0.0;
     for (int i = 0; i < blocksPerGrid; i++) {
         sumEnergy += partialSum[i];
     }
