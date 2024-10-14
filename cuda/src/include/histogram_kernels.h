@@ -3,7 +3,7 @@
 
 __global__ void init_DpE_kernel(double *DpE, int N_PART, int BINS);
 
-__global__ void init_DxE_kernel(double *DxE, int N_PART, int BINS);
+__global__ void init_DxE_kernel(float *d_DxE, int N_PART, int BINS);
 
 __global__ void simulate_particle_motion(int number_of_steps, float *d_x, double *d_p,
                                          int N_PART, float DT, float M, float sigmaL,

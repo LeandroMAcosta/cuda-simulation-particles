@@ -30,6 +30,6 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
 
 float energy_sum(double *d_p, int N_PART, unsigned int evolution, float M);
 
-int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, double *DxE, double *DpE, const char *filename, int BINS, float Et);
+int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, float *d_DxE, double *DpE, const char *filename, int BINS, float Et);
 
 #endif

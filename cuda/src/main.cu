@@ -56,11 +56,11 @@ int main()
     h_x = (float *)malloc(sizeof(float) * N_PART);
     h_p = (double *)malloc(sizeof(double) * N_PART);
 
-    double *d_p, *d_DxE, *d_DpE;
-    float *d_x;
+    double *d_p, *d_DpE;
+    float *d_x, *d_DxE;
     cudaMalloc(&d_x, sizeof(float) * N_PART);
     cudaMalloc(&d_p, sizeof(double) * N_PART);
-    cudaMalloc(&d_DxE, sizeof(double) * (2 * BINS + 4));
+    cudaMalloc(&d_DxE, sizeof(float) * (2 * BINS + 4));
     cudaMalloc(&d_DpE, sizeof(double) * (2 * BINS));
 
     // Launch CUDA kernel for parallel d_DpE computation

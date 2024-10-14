@@ -158,17 +158,17 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
     saveFile.write(reinterpret_cast<const char *>(h_p), sizeof(h_p[0]) * N_PART);
 }
 
-__global__ void chi2x_kernel(int *h, double *DxE, double *chi2x, int BINS, bool isX0000000) {
+__global__ void chi2x_kernel(int *d_h, float *d_DxE, double *chi2x, int BINS, bool isX0000000) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    double local_chi2x = 0.0;
+    float local_chi2x = 0.0f;
 
     if (isX0000000) {
         if (i >= BINS && i < 2 * BINS) {
-            local_chi2x = pow(h[i] - 2 * DxE[i], 2) / (2 * DxE[i]);
+            local_chi2x = pow(d_h[i] - 2 * d_DxE[i], 2) / (2 * d_DxE[i]);
         }
     } else {
         if (i >= 4 && i < 2 * BINS) {
-            local_chi2x = pow(h[i] - DxE[i], 2) / DxE[i];
+            local_chi2x = pow(d_h[i] - d_DxE[i], 2) / d_DxE[i];
         }
     }
 
@@ -195,11 +195,11 @@ __global__ void chiIp_Pp_kernel(int *g, double *DpE, double *chiIp, double *chiP
     }
 }
 
-__global__ void chiIx_Px_kernel(int *h, double *DxE, double *chiIx, double *chiPx, int BINS) {
+__global__ void chiIx_Px_kernel(int *h, float *d_DxE, double *chiIx, double *chiPx, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= 4 && i <= BINS + 1) {
-        double chiIx_local = pow(h[i] - h[2 * BINS + 3 - i], 2) / DxE[i];
-        double chiPx_local = pow(h[i] + h[2 * BINS + 3 - i] - 2.0 * DxE[i], 2) / DxE[i];
+        float chiIx_local = pow(h[i] - h[2 * BINS + 3 - i], 2) / d_DxE[i];
+        float chiPx_local = pow(h[i] + h[2 * BINS + 3 - i] - 2.0 * d_DxE[i], 2) / d_DxE[i];
 
         atomicAdd(chiIx, chiIx_local);
         atomicAdd(chiPx, chiPx_local);
@@ -207,7 +207,7 @@ __global__ void chiIx_Px_kernel(int *h, double *DxE, double *chiIx, double *chiP
 }
 
 
-int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, double *DxE, double *DpE, const char *filename, int BINS, float Et) {
+int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, float *d_DxE, double *DpE, const char *filename, int BINS, float Et) {
     double *d_chi2x, *d_chi2p, *d_chiIp, *d_chiPp, *d_chiIx, *d_chiPx;
 
     // Allocate memory for reduction variables on GPU
@@ -232,7 +232,7 @@ int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, doub
     bool isX0000000 = (strcmp(filename, "X0000000.dat") == 0);
 
     // Launch kernels for chi2x calculation
-    chi2x_kernel<<<numBlocksX, blockSize>>>(d_h, DxE, d_chi2x, BINS, isX0000000);
+    chi2x_kernel<<<numBlocksX, blockSize>>>(d_h, d_DxE, d_chi2x, BINS, isX0000000);
     cudaDeviceSynchronize();
 
     // Calculate chi2xr if needed
@@ -250,7 +250,7 @@ int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, doub
     cudaDeviceSynchronize();
 
     // Launch kernel for chiIx and chiPx
-    chiIx_Px_kernel<<<numBlocksX, blockSize>>>(d_h, DxE, d_chiIx, d_chiPx, BINS);
+    chiIx_Px_kernel<<<numBlocksX, blockSize>>>(d_h, d_DxE, d_chiIx, d_chiPx, BINS);
     cudaDeviceSynchronize();
 
     // Scale results for chi2p, chiIp, chiPp

@@ -20,17 +20,17 @@ __global__ void init_DpE_kernel(double *DpE, int N_PART, int BINS) {
     DpE[i] = (numerator / denominator) * exp(exponent);
 }
 
-__global__ void init_DxE_kernel(double *DxE, int N_PART, int BINS) {
+__global__ void init_DxE_kernel(float *d_DxE, int N_PART, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= (BINS + 1) << 1) return;
     if (i < 2) {
         // Maybe just i == 0?
-        DxE[0] = 0.0;
-        DxE[1] = 0.0;
-        DxE[2 * BINS + 2] = 0.0;
-        DxE[2 * BINS + 3] = 0.0;
+        d_DxE[0] = 0.0f;
+        d_DxE[1] = 0.0f;
+        d_DxE[2 * BINS + 2] = 0.0f;
+        d_DxE[2 * BINS + 3] = 0.0f;
     }
-    DxE[i] = 1.0E-3 * N_PART;
+    d_DxE[i] = 1.0E-3f * N_PART;
 }
 
 __device__ uint32_t generate_random(uint32_t base_seed) {
