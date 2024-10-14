@@ -55,5 +55,4 @@ gnuplot $gnuplot_script2
 echo "Generated histogram_3_4.png"
 
 # Optionally, open both generated images
-code histogram_1_2.png
-code histogram_3_4.png
+code --diff histogram_1_2.png histogram_3_4.png
