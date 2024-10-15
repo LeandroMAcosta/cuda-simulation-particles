@@ -15,8 +15,8 @@ __global__ void init_DpE_kernel(double *DpE, int N_PART, int BINS) {
     if (i >= 2 * BINS) return;
 
     double numerator = 6.0E-26 * N_PART;
-    double denominator = 5.24684E-24 * sqrt(2.0 * M_PI);
-    double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / 5.24684E-24, 2) / 2;
+    double denominator = MASS_SCALE * sqrt(2.0 * M_PI);
+    double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / MASS_SCALE, 2) / 2;
     DpE[i] = (numerator / denominator) * exp(exponent);
 }
 
@@ -78,16 +78,16 @@ __global__ void init_p_kernel(double* d_p,  uint32_t base_seed, int N_PART) {
     uint32_t seed = generate_random(base_seed);
 
     // Generate two random values using XORShift
-    double randomValue1 = (double)(xorshift32(&seed)) / UINT32_MAX;
-    double randomValue2 = (double)(xorshift32(&seed)) / UINT32_MAX;
+    double randomValue1 = d_xorshift(&seed);
+    double randomValue2 = d_xorshift(&seed);
 
     // Box-Muller transform to generate two normally distributed random numbers
-    double xi1 = sqrt(-2.0 * log(randomValue1 + 1E-35));
+    double xi1 = sqrt(-2.0 * log(randomValue1 + EPSILON));
     double xi2 = 2.0 * M_PI * randomValue2;
 
     // Store the generated values in the p array
-    d_p[2 * idx] = xi1 * cos(xi2) * 5.24684E-24;
-    d_p[2 * idx + 1] = xi1 * sin(xi2) * 5.24684E-24;
+    d_p[2 * idx] = xi1 * cos(xi2) * MASS_SCALE;
+    d_p[2 * idx + 1] = xi1 * sin(xi2) * MASS_SCALE;
     
 }
 
@@ -108,7 +108,7 @@ __global__ void update_histograms_kernel(float *d_x, double *d_p, int *h, int *g
 }
 
 // Kernel function to update positions and momenta
-__global__ void simulate_particle_motion(int number_of_steps, float *d_x, double *d_p, int N_PART, float DT, float M, float sigmaL, float alfa, float pmin, float pmax) {
+__global__ void simulate_particle_motion(int number_of_steps, float *d_x, double *d_p, int N_PART, float DT, float M, float sigmaL) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx >= N_PART) return;
@@ -120,45 +120,40 @@ __global__ void simulate_particle_motion(int number_of_steps, float *d_x, double
     double p_tmp = d_p[idx];  // Keep p_tmp as double
 
     int signop, k;
-
     float deltaX;
 
     // Main particle loop
     for (int step = 0; step < number_of_steps; ++step) {
-        // Operations with x_tmp now involve float
         x_tmp += p_tmp * (DT / M);
-        // x_tmp += (float) (p_tmp * (DT / M));
-        signop = copysign(1.0, p_tmp);  // Keep signop as double
-        k = truncf(x_tmp + 0.5f * signop);  // Use truncf for float
+        signop = copysign(1.0, p_tmp);
+        k = truncf(x_tmp + 0.5f * signop);
 
         if (k == 0) continue;
 
-        // float xi1 = sqrtf(-2.0f * logf(f_xorshift(&seed) + 1E-35f));
+        // float xi1 = sqrtf(-2.0f * logf(f_xorshift(&seed) + EPSILON));
         // float xi2 = 2.0f * (float)M_PI * f_xorshift(&seed);
-
-        deltaX = sqrtf(fabsf(k)) * sqrtf(-2.0f * logf(f_xorshift(&seed) + 1E-35f)) * cosf(2.0f * (float)M_PI * f_xorshift(&seed)) * sigmaL;  // Use float functions
-
+        deltaX = sqrtf(fabsf(k)) * sqrtf(-2.0f * logf(f_xorshift(&seed) + EPSILON)) * cosf(2.0f * (float)M_PI * f_xorshift(&seed)) * sigmaL;  // Use float functions
         deltaX = (fabsf(deltaX) > 1.0f ? 1.0f * copysignf(1.0f, deltaX) : deltaX);
         x_tmp = (k % 2 ? -1.0f : 1.0f) * (x_tmp - k) + deltaX;
 
         if (fabsf(x_tmp) > 0.502f) {
             x_tmp = 1.004f * copysignf(1.0f, x_tmp) - x_tmp;
         }
-        p_tmp = fabs(p_tmp);  // Keep p_tmp operations in double
+        p_tmp = fabs(p_tmp);
 
         for (int l = 1; l <= labs(k); ++l) {
-            // float DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
+            // float DeltaE = ALFA * (p_tmp - PMIN) * (PMAX - p_tmp);
             // double value = p_tmp * p_tmp + DeltaE * (f_xorshift(&seed) - 0.5);
             // if (value < 0) {
             //     value = 0;
             // }
-            p_tmp = sqrt(max(0.0f, p_tmp * p_tmp + alfa * (p_tmp - pmin) * (pmax - p_tmp) * (f_xorshift(&seed) - 0.5)));
+            p_tmp = sqrt(max(0.0f, p_tmp * p_tmp + ALFA * (p_tmp - PMIN) * (PMAX - p_tmp) * (f_xorshift(&seed) - 0.5)));
         }
         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
     }
     // Update global memory
-    d_x[idx] = x_tmp;  // Store the float result back to x
-    d_p[idx] = p_tmp;  // Store the double result back to p
+    d_x[idx] = x_tmp;
+    d_p[idx] = p_tmp;
 }
 
 // CUDA kernel for energy sum calculation

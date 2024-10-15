@@ -5,9 +5,9 @@
 #include <cstring>
 #include <ctime>
 #include <cuda_runtime.h>
+#include "../include/constants.h"
 #include "../include/utils.h"
 #include "../include/histogram_kernels.h"
-
 
 
 using namespace std;
@@ -94,7 +94,8 @@ float energy_sum(double *d_p, int N_PART, unsigned int evolution, float M) {
     cudaFree(d_partialSum);
 
     // Output the result
-    std::cout << "N° de pasos " << evolution << "\tEnergía total = " << sumEnergy / (2 * M) << std::endl;
+    cout << "Sum energy: " << sumEnergy << endl;
+    std::cout << "N° de pasos " << evolution << "\tEnergía total = " << scientific << sumEnergy / (2 * M) << std::endl;
     return (float)(sumEnergy / (2 * M));
 }
 
@@ -115,7 +116,7 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
         int i0 = d_rand() * N_PART;
         int i = i0;
         while ((np < Npmod) && (i < N_PART)) {
-            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24) {
+            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * MASS_SCALE) {
                 sqrtp2[np] = sqrt(1.0 - f * f) * h_p[i];
                 np++;
                 h_p[i] *= f;
@@ -124,7 +125,7 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
         }
         i = 0;
         while ((np < Npmod) && (i < i0)) {
-            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24)
+            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * MASS_SCALE)
             {
                 sqrtp2[np] = sqrt(1.0 - f * f) * h_p[i];
                 np++;
@@ -137,7 +138,7 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
         np = 0;
         while ((np < Npmod) && (i < N_PART)) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * 5.24684E-24) && (fabs(h_p[i]) < 0.9 * 5.24684E-24)) {
+            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * MASS_SCALE) && (fabs(h_p[i]) < 0.9 * MASS_SCALE)) {
                 h_p[i] = sqrt(h_p[i] * h_p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }
@@ -146,7 +147,7 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
         i = 0;
         while (np < Npmod) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * 5.24684E-24) && (fabs(h_p[i]) < 0.9 * 5.24684E-24)) {
+            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * MASS_SCALE) && (fabs(h_p[i]) < 0.9 * MASS_SCALE)) {
                 h_p[i] = sqrt(h_p[i] * h_p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }

@@ -27,12 +27,10 @@ int main()
     char filename[32];
 
     unsigned int evolution = 0u;
-    float alfa = 1.0e-4f;
-    float pmin = 2.0E-026f, pmax = 3.0E-023f;
+    // float alfa = 1.0e-4f;
+    // float pmin = 2.0E-026f, pmax = 3.0E-023f;
 
     int steps[500];
-    // cudaMallocManaged(&steps, sizeof(int) * 500);
-
     char data_filename[] = "datos.in";
     load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
                               saveFilename, &resume, &dump, &sigmaL);
@@ -122,14 +120,14 @@ int main()
     }
 
     float Et = energy_sum(d_p, N_PART, evolution, M);
-    cout << "pmin=" << scientific << pmin << " alfa=" << alfa << " Et=" << Et << endl;
+    cout << "PMIN=" << scientific << PMIN << " ALFA=" << ALFA << " Et=" << Et << endl;
 
     // Main loop to iterate through Ntandas
     for (unsigned int j = 0; j < Ntandas; j++) {
         // Kernel launch parameters
         int numBlocks = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
 
-        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(steps[j], d_x, d_p, N_PART, DT, M, sigmaL, alfa, pmin, pmax);
+        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(steps[j], d_x, d_p, N_PART, DT, M, sigmaL);
         cudaDeviceSynchronize();
 
         int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
@@ -176,51 +174,3 @@ int main()
 
     return 0;
 }
-
-/* para graficar en el gnuplot: (sacando un archivo "hists.eps")
-set terminal postscript enhanced color eps 20
-set output "hists.eps"
-# histograma de d_x  (las dos líneas siguientes alcanzan para graficar las d_x
-dentro del gnuplot) set style fill solid 1.0 # o medio transparente: set style
-fill transparent solid 0.5 noborder set key left ; set xrange[-0.5:0.5] p
-'X1000000.dat' u 1:2 w boxes lc rgb "#dddddd" t 'X1000000.dat' , 'X2000000.dat'
-u 1:2 w boxes lc rgb "#77ff77" t 'X2000000.dat' , 'X2000001.dat' u 1:2 w boxes
-lc "#ffaaaa" t 'X2000001.dat' , 'X2000002.dat' u 1:2 w boxes lc "#dddd55" t
-'X2000002.dat' , 'X2000003.dat' u 1:2 w boxes lc rgb "#ffdddd" t 'X2000003.dat'
-, 'X2000008.dat' u 1:2 w boxes lc rgb "#cc44ff" t 'X2000008.dat' ,
-'X2000018.dat' u 1:2 w boxes lc rgb "#888888" t 'X2000018.dat' , 'X2000028.dat'
-u 1:2 w boxes lc rgb "#bbddbb" t 'X2000028.dat' , 'X2000038.dat' u 1:2 w boxes
-lc rgb "#ffee00" t 'X2000038.dat' , 'X2000048.dat' u 1:2 w boxes lc rgb
-"#8844ff" t 'X2000048.dat' , 'X2000058.dat' u 1:2 w boxes lc rgb "#cceeff" t
-'X2000058.dat' , 'X2000068.dat' u 1:2 w boxes lc rgb "#44bb44" t 'X2000068.dat'
-, 'X2000078.dat' u 1:2 w boxes lc rgb "#99ee77" t 'X2000078.dat' ,
-'X2000088.dat' u 1:2 w boxes lc rgb "#ffdd66" t 'X2000088.dat' , 'X2000098.dat'
-u 1:2 w boxes lc rgb "#4444ff" t 'X2000098.dat' # histograma de p  (las dos
-líneas siguientes alcanzan para graficar las p dentro del gnuplot) set key left
-; set xrange[-3e-23:3e-23] p 'X0000500.dat' u 3:4 w boxes lc rgb "#dddddd" t
-'X0000500.dat' , 'X0001000.dat' u 3:4 w boxes lc rgb "#77ff77" t 'X0001000.dat'
-, 'X0002000.dat' u 3:4 w boxes lc "#ffaaaa" t 'X0002000.dat' , 'X0005000.dat' u
-3:4 w boxes lc "#dddd55" t 'X0005000.dat' , 'X0010000.dat' u 3:4 w boxes lc rgb
-"#ffdddd" t 'X0010000.dat' , 'X0020000.dat' u 3:4 w boxes lc rgb "#cc44ff" t
-'X0020000.dat' , 'X0050000.dat' u 3:4 w boxes lc rgb "#888888" t 'X0050000.dat'
-, 'X0100000.dat' u 3:4 w boxes lc rgb "#bbddbb" t 'X0100000.dat' ,
-'X0200000.dat' u 3:4 w boxes lc rgb "#ffee00" t 'X0200000.dat' , 'X0500000.dat'
-u 3:4 w boxes lc rgb "#8844ff" t 'X0500000.dat' , 'X0995000.dat' u 3:4 w boxes
-lc rgb "#cceeff" t 'X0995000.dat' , 'X0999000.dat' u 3:4 w boxes lc rgb
-"#44bb44" t 'X0999000.dat' , 'X0999500.dat' u 3:4 w boxes lc rgb "#99ee77" t
-'X0999500.dat' , 'X1000000.dat' u 3:4 w boxes lc rgb "#ffdd66" t 'X1000000.dat'
-, 'X2000000.dat' u 3:4 w boxes lc rgb "#4444ff" t 'X2000000.dat' set terminal qt
-
-
-p 'X0000001.dat' u 1:2 w boxes lc rgb "#dddddd" t 'X0000001.dat' ,
-'X0000100.dat' u 1:2 w boxes lc rgb "#77ff77" t 'X0000100.dat' , 'X0001000.dat'
-u 1:2 w boxes lc "#ffaaaa" t 'X0001000.dat' , 'X0001200.dat' u 1:2 w boxes lc
-"#dddd55" t 'X0001200.dat' , 'X0001400.dat' u 1:2 w boxes lc rgb "#ffdddd" t
-'X0001400.dat' , 'X0001500.dat' u 1:2 w boxes lc rgb "#cc44ff" t 'X0001500.dat'
-, 'X0001600.dat' u 1:2 w boxes lc rgb "#888888" t 'X0001600.dat' ,
-'X0001700.dat' u 1:2 w boxes lc rgb "#bbddbb" t 'X0001700.dat' , 'X0001800.dat'
-u 1:2 w boxes lc rgb "#ffee00" t 'X0001800.dat' , 'X0001900.dat' u 1:2 w boxes
-lc rgb "#8844ff" t 'X0001900.dat' , 'X0002000.dat' u 1:2 w boxes lc rgb
-"#cceeff" t 'X0002000.dat'
-
-*/
