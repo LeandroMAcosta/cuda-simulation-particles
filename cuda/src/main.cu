@@ -13,18 +13,20 @@ using namespace std;
 
 int main()
 {
-    int N_THREADS = 0, N_PART = 0, BINS = 0, resume = 0, dump = 0;
+    int N_THREADS = 0, N_PART = 0, BINS = 0;
+    bool resume, dump;
+
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
-    double DT, M, sigmaL = 0.0;
+    float DT, M, sigmaL = 0.0;
 
-    double xi1 = 0.0, xi2 = 0.0;
+    float xi1 = 0.0, xi2 = 0.0;
     int X0 = 1;
     char filename[32];
 
-    double d = 1.0e-72, alfa = 1.0e-4;
+    float alfa = 0;
     unsigned int evolution = 0u;
-    double pmin = 2.0E-026, pmax = 3.0E-023;
+    float pmin = 2.0E-026, pmax = 3.0E-023;
 
     int steps[500];
     // cudaMallocManaged(&steps, sizeof(int) * 500);
@@ -36,9 +38,6 @@ int main()
     printf("Parameters loaded from file:\n");
     printf("N_PART=%d\n", N_PART);
     printf("BINS=%d\n", BINS);
-    // printf("DT=%f\n", DT);
-    // printf("M=%f\n", M);
-
     printf("DT=%.60f\n", DT);
     printf("M=%.60f\n", M);
     printf("N_THREADS=%d\n", N_THREADS);
@@ -50,12 +49,15 @@ int main()
     printf("sigmaL=%f\n", sigmaL);
 
     // Unified Memory Allocation for arrays using cudaMallocManaged
+    float *h_x, *h_p;
+    h_x = (float *)malloc(sizeof(float) * N_PART);
+    h_p = (float *)malloc(sizeof(float) * N_PART);
 
-    double *x, *p, *DxE, *DpE;
-    cudaMalloc(&x, sizeof(double) * N_PART);
-    cudaMalloc(&p, sizeof(double) * N_PART);
-    cudaMalloc(&DxE, sizeof(double) * (2 * BINS + 4));
-    cudaMalloc(&DpE, sizeof(double) * (2 * BINS));
+    float *d_x, *d_p, *DxE, *DpE;
+    cudaMalloc(&d_x, sizeof(float) * N_PART);
+    cudaMalloc(&d_p, sizeof(float) * N_PART);
+    cudaMalloc(&DxE, sizeof(float) * (2 * BINS + 4));
+    cudaMalloc(&DpE, sizeof(float) * (2 * BINS));
 
     // Launch CUDA kernel for parallel DpE computation
     int threadsPerBlock = 512;
@@ -85,39 +87,39 @@ int main()
     cudaMemset(d_hg, 0, (2 * BINS + 4) * (2 * BINS) * sizeof(int));
 
     // Check for resume condition
-    if (resume != 0) {
+    if (!resume) {
         while (X0 == 1) {
-            // Initialize particles
             uint32_t base_seed_1 = static_cast<uint32_t>(time(NULL));
             uint32_t base_seed_2 = static_cast<uint32_t>(time(NULL) + 1);
 
             int numBlocksInitX = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
-            init_x_kernel<<<numBlocksInitX, threadsPerBlock>>>(x, base_seed_1, N_PART);
+            init_x_kernel<<<numBlocksInitX, threadsPerBlock>>>(d_x, base_seed_1, N_PART);
 
             int numBlocksInitP = ((N_PART >> 1) + threadsPerBlock - 1) / threadsPerBlock;
-            init_p_kernel<<<numBlocksInitP, threadsPerBlock>>>(p, base_seed_2, N_PART);
+            init_p_kernel<<<numBlocksInitP, threadsPerBlock>>>(d_p, base_seed_2, N_PART);
 
-            // The kernel  update_histograms_kernel uses x and p arrays to update h_h, h_g, h_hg arrays, so we need to synchronize.
+            // The kernel  update_histograms_kernel uses d_x and p arrays to update h_h, h_g, h_hg arrays, so we need to synchronize.
             cudaDeviceSynchronize();
 
             int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
-            update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, d_h, d_g, d_hg, N_PART, BINS);
+            update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(d_x, d_p, d_h, d_g, d_hg, N_PART, BINS);
             cudaDeviceSynchronize();
 
-            double Et = energy_sum(p, N_PART, evolution, M);
+            float Et = energy_sum(d_p, N_PART, evolution, M);
             X0 = make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, DxE, DpE, "X0000000.dat", BINS, Et);
             if (X0 == 1) {
                 cout << "Falló algún chi2: X0=" << X0 << endl;
             }
         }
-
     } else {
-        // If not resuming, read data
-        read_data(inputFilename, x, p, &evolution, N_PART);
+        cout << "Evolution: " << evolution << endl;
+        read_data(inputFilename, h_x, h_p, &evolution, N_PART);
+        cudaMemcpy(d_x, h_x, sizeof(float) * N_PART, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_p, h_p, sizeof(float) * N_PART, cudaMemcpyHostToDevice);
     }
 
-    double Et = energy_sum(p, N_PART, evolution, M);
-    cout << "pmin=" << scientific << pmin << " d=" << d << " alfa=" << alfa << " Et=" << Et << endl;
+    float Et = energy_sum(d_p, N_PART, evolution, M);
+    cout << "pmin=" << scientific << pmin << " alfa=" << alfa << " Et=" << Et << endl;
 
     // Main loop to iterate through Ntandas
     for (unsigned int j = 0; j < Ntandas; j++) {
@@ -127,41 +129,38 @@ int main()
         // Kernel launch parameters
         int numBlocks = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
 
-        // Launch kernel
-        // cudaProfilerStart();
-        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(steps[j], x, p, DxE, DpE, d_h, d_g, d_hg, N_PART, DT, M, sigmaL, alfa, pmin, pmax);
-        // cudaProfilerStop();
-
-        // cudaDeviceSynchronize();
+        simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(steps[j], d_x, d_p, DxE, DpE, d_h, d_g, d_hg, N_PART, DT, M, sigmaL, alfa, pmin, pmax);
+        cudaDeviceSynchronize();
 
         int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
-        update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(x, p, d_h, d_g, d_hg, N_PART, BINS);
-        cudaDeviceSynchronize();
+        update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(d_x, d_p, d_h, d_g, d_hg, N_PART, BINS);
 
         evolution += steps[j];
         if (evolution < 10000000) {
             sprintf(filename, "X%07d.dat", evolution);
         } else {
-            sprintf(filename, "X%1.3e.dat", static_cast<double>(evolution));
+            sprintf(filename, "X%1.3e.dat", static_cast<float>(evolution));
             char *e = static_cast<char*>(memchr(filename, 'e', 32)); // Explicit cast to char*
             if (e) {
                 strcpy(e + 1, e + 3); // Adjusting the position after 'e'
             }
         }
 
-        if (dump == 0) {
-            save_data(saveFilename, x, p, evolution, N_PART);
+        if (dump) {
+            cudaMemcpy(h_x, d_x, sizeof(float) * N_PART, cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_p, d_p, sizeof(float) * N_PART, cudaMemcpyDeviceToHost);
+            save_data(saveFilename, h_x, d_p, evolution, N_PART);
         }
 
-        Et = energy_sum(p, N_PART, evolution, M);
+        Et = energy_sum(d_p, N_PART, evolution, M);
         make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, DxE, DpE, filename, BINS, Et);
     }
 
     cout << "Completo evolution = " << evolution << endl;
 
     // Free memory
-    cudaFree(x);
-    cudaFree(p);
+    cudaFree(d_x);
+    cudaFree(d_p);
     cudaFree(DxE);
     cudaFree(DpE);
     cudaFree(d_h);
@@ -181,7 +180,7 @@ int main()
 /* para graficar en el gnuplot: (sacando un archivo "hists.eps")
 set terminal postscript enhanced color eps 20
 set output "hists.eps"
-# histograma de x  (las dos líneas siguientes alcanzan para graficar las x
+# histograma de d_x  (las dos líneas siguientes alcanzan para graficar las d_x
 dentro del gnuplot) set style fill solid 1.0 # o medio transparente: set style
 fill transparent solid 0.5 noborder set key left ; set xrange[-0.5:0.5] p
 'X1000000.dat' u 1:2 w boxes lc rgb "#dddddd" t 'X1000000.dat' , 'X2000000.dat'

@@ -20,8 +20,8 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     fscanf(inputFile, " %*[^\n]");
     fscanf(inputFile, " %*[^:]: %d", N_PART);
     fscanf(inputFile, " %*[^:]: %d", BINS);
-    fscanf(inputFile, " %*[^:]: %le", DT);
-    fscanf(inputFile, " %*[^:]: %le", M);
+    fscanf(inputFile, " %*[^:]: %f", DT);
+    fscanf(inputFile, " %*[^:]: %f", M);
     fscanf(inputFile, " %*[^:]: %d", N_THREADS);
     fscanf(inputFile, " %*[^\n]");
     *Ntandas = 0;
@@ -35,7 +35,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     fscanf(inputFile, " %*[^:]: %s %s", du, saveFilename);
     printf("%s escribe %s\t", du, saveFilename);
     *dump = strcmp(du, "sí");
-    fscanf(inputFile, " %*[^:]: %le", sigmaL);
+    fscanf(inputFile, " %*[^:]: %f", sigmaL);
     printf("sigma(L) = %le\n", *sigmaL);
     fclose(inputFile);
 }
@@ -84,8 +84,7 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         int np = 0;
         int i0 = d_rand() * N_PART;
         int i = i0;
-        while ((np < Npmod) && (i < N_PART))
-        {
+        while ((np < Npmod) && (i < N_PART)) {
             if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24)
             {
                 sqrtp2[np] = sqrt(1.0 - f * f) * p[i];
@@ -95,10 +94,8 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
             i++;
         }
         i = 0;
-        while ((np < Npmod) && (i < i0))
-        {
-            if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24)
-            {
+        while ((np < Npmod) && (i < i0)) {
+            if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24) {
                 sqrtp2[np] = sqrt(1.0 - f * f) * p[i];
                 np++;
                 p[i] *= f;
@@ -108,8 +105,7 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         Npmod = np;
         printf("np=%d   (2.43-2.73)sigma\n", np);
         np = 0; // repartimos 0.5*E+ en 2 partes iguales
-        while ((np < Npmod) && (i < N_PART))
-        {
+        while ((np < Npmod) && (i < N_PART)) {
             int signopr = copysign(1.0, sqrtp2[np]);
             if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
             {
@@ -119,8 +115,7 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
             i++;
         }
         i = 0;
-        while (np < Npmod)
-        {
+        while (np < Npmod) {
             int signopr = copysign(1.0, sqrtp2[np]);
             if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
             {
@@ -131,22 +126,18 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         }
         np = 0; // otra vez la busqueda de p chicos, porque repartimos la otra
                 // mitad de E+
-        while ((np < Npmod) && (i < N_PART))
-        {
+        while ((np < Npmod) && (i < N_PART)) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
-            {
+            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) {
                 p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }
             i++;
         }
         i = 0;
-        while (np < Npmod)
-        {
+        while (np < Npmod) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
-            {
+            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) {
                 p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }
