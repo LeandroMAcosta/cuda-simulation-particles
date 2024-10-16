@@ -116,7 +116,7 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
         int i0 = d_rand() * N_PART;
         int i = i0;
         while ((np < Npmod) && (i < N_PART)) {
-            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * MASS_SCALE) {
+            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * SIGMA_VELOCITY) {
                 sqrtp2[np] = sqrt(1.0 - f * f) * h_p[i];
                 np++;
                 h_p[i] *= f;
@@ -125,7 +125,7 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
         }
         i = 0;
         while ((np < Npmod) && (i < i0)) {
-            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * MASS_SCALE)
+            if (fabs(h_p[i]) > (2.43 + 0.3 * np / Npmod) * SIGMA_VELOCITY)
             {
                 sqrtp2[np] = sqrt(1.0 - f * f) * h_p[i];
                 np++;
@@ -138,7 +138,7 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
         np = 0;
         while ((np < Npmod) && (i < N_PART)) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * MASS_SCALE) && (fabs(h_p[i]) < 0.9 * MASS_SCALE)) {
+            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * SIGMA_VELOCITY) && (fabs(h_p[i]) < 0.9 * SIGMA_VELOCITY)) {
                 h_p[i] = sqrt(h_p[i] * h_p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }
@@ -147,7 +147,7 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
         i = 0;
         while (np < Npmod) {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * MASS_SCALE) && (fabs(h_p[i]) < 0.9 * MASS_SCALE)) {
+            if ((signopr * h_p[i] > 0) && (fabs(h_p[i]) > 0.15 * SIGMA_VELOCITY) && (fabs(h_p[i]) < 0.9 * SIGMA_VELOCITY)) {
                 h_p[i] = sqrt(h_p[i] * h_p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
             }

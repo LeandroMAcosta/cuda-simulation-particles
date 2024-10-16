@@ -15,8 +15,8 @@ __global__ void init_DpE_kernel(double *DpE, int N_PART, int BINS) {
     if (i >= 2 * BINS) return;
 
     double numerator = 6.0E-26 * N_PART;
-    double denominator = MASS_SCALE * sqrt(2.0 * M_PI);
-    double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / MASS_SCALE, 2) / 2;
+    double denominator = SIGMA_VELOCITY * sqrt(2.0 * M_PI);
+    double exponent = -pow(3.0e-23 * (1.0 * i / BINS - 0.999) / SIGMA_VELOCITY, 2) / 2;
     DpE[i] = (numerator / denominator) * exp(exponent);
 }
 
@@ -86,8 +86,8 @@ __global__ void init_p_kernel(double* d_p,  uint32_t base_seed, int N_PART) {
     double xi2 = 2.0 * M_PI * randomValue2;
 
     // Store the generated values in the p array
-    d_p[2 * idx] = xi1 * cos(xi2) * MASS_SCALE;
-    d_p[2 * idx + 1] = xi1 * sin(xi2) * MASS_SCALE;
+    d_p[2 * idx] = xi1 * cos(xi2) * SIGMA_VELOCITY;
+    d_p[2 * idx + 1] = xi1 * sin(xi2) * SIGMA_VELOCITY;
     
 }
 
