@@ -206,19 +206,19 @@ __global__ void chi2x_kernel(int *d_h, RealTypeX *d_DxE, double *chi2x, int BINS
     atomicAdd(chi2x, local_chi2x);
 }
 
-__global__ void chi2p_kernel(int *g, RealTypeP *DpE, double *chi2p, int BINS) {
+__global__ void chi2p_kernel(int *g, RealTypeP *d_DpE, double *chi2p, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < 2 * (BINS - BORDES)) {
-        double local_chi2p = pow(g[i + BORDES] - DpE[i + BORDES], 2) / DpE[i + BORDES];
+        double local_chi2p = pow(g[i + BORDES] - d_DpE[i + BORDES], 2) / d_DpE[i + BORDES];
         atomicAdd(chi2p, local_chi2p);
     }
 }
 
-__global__ void chiIp_Pp_kernel(int *g, RealTypeP *DpE, double *chiIp, double *chiPp, int BINS) {
+__global__ void chiIp_Pp_kernel(int *g, RealTypeP *d_DpE, double *chiIp, double *chiPp, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < (BINS - BORDES)) {
-        double chiIp_local = pow(g[i + BORDES] - g[2 * BINS - 1 - BORDES - i], 2) / DpE[i + BORDES];
-        double chiPp_local = pow(g[i + BORDES] + g[2 * BINS - 1 - BORDES - i] - 2.0 * DpE[i + BORDES], 2) / DpE[i + BORDES];
+        double chiIp_local = pow(g[i + BORDES] - g[2 * BINS - 1 - BORDES - i], 2) / d_DpE[i + BORDES];
+        double chiPp_local = pow(g[i + BORDES] + g[2 * BINS - 1 - BORDES - i] - 2.0 * d_DpE[i + BORDES], 2) / d_DpE[i + BORDES];
 
         atomicAdd(chiIp, chiIp_local);
         atomicAdd(chiPp, chiPp_local);
@@ -237,7 +237,7 @@ __global__ void chiIx_Px_kernel(int *h, RealTypeX *d_DxE, double *chiIx, double 
 }
 
 
-int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, RealTypeX *d_DxE, RealTypeP *DpE, const char *filename, int BINS, double Et) {
+int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, RealTypeX *d_DxE, RealTypeP *d_DpE, const char *filename, int BINS, double Et) {
     double *d_chi2x, *d_chi2p, *d_chiIp, *d_chiPp, *d_chiIx, *d_chiPx;
 
     // Allocate memory for reduction variables on GPU
@@ -272,11 +272,11 @@ int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, Real
     }
 
     // Launch kernel for chi2p calculation
-    chi2p_kernel<<<numBlocksP, blockSize>>>(d_g, DpE, d_chi2p, BINS);
+    chi2p_kernel<<<numBlocksP, blockSize>>>(d_g, d_DpE, d_chi2p, BINS);
     cudaDeviceSynchronize();
 
     // Launch kernel for chiIp and chiPp
-    chiIp_Pp_kernel<<<numBlocksP, blockSize>>>(d_g, DpE, d_chiIp, d_chiPp, BINS);
+    chiIp_Pp_kernel<<<numBlocksP, blockSize>>>(d_g, d_DpE, d_chiIp, d_chiPp, BINS);
     cudaDeviceSynchronize();
 
     // Launch kernel for chiIx and chiPx
