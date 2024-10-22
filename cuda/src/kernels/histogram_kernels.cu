@@ -108,7 +108,7 @@ __global__ void update_histograms_kernel(double *d_x, double *d_p, int *h, int *
 }
 
 // Kernel function to update positions and momenta
-__global__ void simulate_particle_motion(int number_of_steps, double *d_x, double *d_p, int N_PART, RealType1 DT, RealType1 M, RealType1 sigmaL) {
+__global__ void simulate_particle_motion(int number_of_steps, double *d_x, double *d_p, int N_PART, RealTypeConstant DT, RealTypeConstant M, RealTypeConstant sigmaL) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx >= N_PART) return;

@@ -19,7 +19,7 @@ int main() {
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
     
-    RealType1 M, DT, sigmaL;
+    RealTypeConstant M, DT, sigmaL;
 
     int X0 = 1;
     char filename[32];

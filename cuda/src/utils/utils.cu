@@ -18,9 +18,9 @@ static double d_rand() {
     return static_cast<double>(rand()) / static_cast<double>(RAND_MAX);
 }
 
-void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealType1 *DT, RealType1 *M, int *N_THREADS,
+void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealTypeConstant *DT, RealTypeConstant *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
-                               bool *resume, bool *dump, RealType1 *sigmaL) {
+                               bool *resume, bool *dump, RealTypeConstant *sigmaL) {
     char du[4];
     FILE *inputFile = fopen(filename, "r");
     if (inputFile == NULL) {
@@ -69,7 +69,7 @@ void read_data(char filename[], double *h_x, double *h_p, unsigned int *evolutio
     fclose(readFile);
 }
 
-double energy_sum(double *d_p, int N_PART, unsigned int evolution, RealType1 M) {
+double energy_sum(double *d_p, int N_PART, unsigned int evolution, RealTypeConstant M) {
     double *d_partialSum;
     double *partialSum;
     int threadsPerBlock = 256; // Define the number of threads per block
