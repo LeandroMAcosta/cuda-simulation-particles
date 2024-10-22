@@ -29,6 +29,6 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
 
 double energy_sum(double *p, int N_PART, unsigned int evolution, double M);
 
-int make_hist(int *h, int *g, int *hg, float *d_DxE, double *DpE, const char *filename, int BINS, double Et);
+int make_hist(int *h, int *g, int *hg, float *DxE, double *DpE, const char *filename, int BINS, double Et);
 
 #endif

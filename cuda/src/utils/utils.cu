@@ -5,6 +5,9 @@
 #include <cstring>
 #include <ctime>
 #include <cuda_runtime.h>
+
+#include <type_traits>
+
 #include "../include/constants.h"
 #include "../include/utils.h"
 #include "../include/histogram_kernels.h"
@@ -56,7 +59,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealType
     fclose(inputFile);
 }
 
-void read_data(char filename[], RealTypeX *h_x, double *h_p, unsigned int *evolution, int N_PART) {
+void read_data(char filename[], RealTypeX *h_x, RealTypeP *h_p, unsigned int *evolution, int N_PART) {
     FILE *readFile = fopen(filename, "r");
     if (readFile == NULL)
     {
@@ -64,12 +67,33 @@ void read_data(char filename[], RealTypeX *h_x, double *h_p, unsigned int *evolu
         exit(1);
     }
     fread(evolution, sizeof(*evolution), 1, readFile); // lee bien evolution como unsigned int
-    fread(h_x, sizeof(h_x[0]) * N_PART, 1, readFile);
-    fread(h_p, sizeof(h_p[0]) * N_PART, 1, readFile);
+
+    if constexpr (std::is_same<RealTypeX, double>::value) {
+        fread(h_x, sizeof(h_x[0]) * N_PART, 1, readFile);
+    } else if (std::is_same<RealTypeX, float>::value) {
+        double *h_x_float = static_cast<double *>(malloc(sizeof(h_x_float[0]) * N_PART));
+        fread(h_x_float, sizeof(h_x_float[0]) * N_PART, 1, readFile);
+        for (int i = 0; i < N_PART; i++) {
+            h_x[i] = static_cast<RealTypeX>(h_x_float[i]);
+        }
+        free(h_x_float);
+    }
+
+    if constexpr (std::is_same<RealTypeP, double>::value) {
+        fread(h_p, sizeof(h_p[0]) * N_PART, 1, readFile);
+    } else if (std::is_same<RealTypeP, float>::value) {
+        double *h_p_float = static_cast<double *>(malloc(sizeof(h_p_float[0]) * N_PART));
+        fread(h_p_float, sizeof(h_p_float[0]) * N_PART, 1, readFile);
+        for (int i = 0; i < N_PART; i++) {
+            h_p[i] = static_cast<RealTypeP>(h_p_float[i]);
+        }
+        free(h_p_float);
+    }
+
     fclose(readFile);
 }
 
-double energy_sum(double *d_p, int N_PART, unsigned int evolution, RealTypeConstant M) {
+double energy_sum(RealTypeP *d_p, int N_PART, unsigned int evolution, RealTypeConstant M) {
     double *d_partialSum;
     double *partialSum;
     int threadsPerBlock = 256; // Define the number of threads per block
@@ -104,7 +128,7 @@ double energy_sum(double *d_p, int N_PART, unsigned int evolution, RealTypeConst
     return (sumEnergy / (2 * M));
 }
 
-void save_data(char filename[], RealTypeX *h_x, double *h_p, unsigned int evolution, int N_PART) {
+void save_data(char filename[], RealTypeX *h_x, RealTypeP *h_p, unsigned int evolution, int N_PART) {
     ofstream saveFile(filename, ios::binary);
     if (!saveFile) {
         cerr << "Error al abrir el archivo " << filename << endl;
@@ -164,7 +188,7 @@ void save_data(char filename[], RealTypeX *h_x, double *h_p, unsigned int evolut
     saveFile.write(reinterpret_cast<const char *>(h_p), sizeof(h_p[0]) * N_PART);
 }
 
-__global__ void chi2x_kernel(int *d_h, double *d_DxE, double *chi2x, int BINS, bool isX0000000) {
+__global__ void chi2x_kernel(int *d_h, RealTypeX *d_DxE, double *chi2x, int BINS, bool isX0000000) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     double local_chi2x = 0.0;
 
@@ -182,7 +206,7 @@ __global__ void chi2x_kernel(int *d_h, double *d_DxE, double *chi2x, int BINS, b
     atomicAdd(chi2x, local_chi2x);
 }
 
-__global__ void chi2p_kernel(int *g, double *DpE, double *chi2p, int BINS) {
+__global__ void chi2p_kernel(int *g, RealTypeP *DpE, double *chi2p, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < 2 * (BINS - BORDES)) {
         double local_chi2p = pow(g[i + BORDES] - DpE[i + BORDES], 2) / DpE[i + BORDES];
@@ -190,7 +214,7 @@ __global__ void chi2p_kernel(int *g, double *DpE, double *chi2p, int BINS) {
     }
 }
 
-__global__ void chiIp_Pp_kernel(int *g, double *DpE, double *chiIp, double *chiPp, int BINS) {
+__global__ void chiIp_Pp_kernel(int *g, RealTypeP *DpE, double *chiIp, double *chiPp, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i < (BINS - BORDES)) {
         double chiIp_local = pow(g[i + BORDES] - g[2 * BINS - 1 - BORDES - i], 2) / DpE[i + BORDES];
@@ -201,7 +225,7 @@ __global__ void chiIp_Pp_kernel(int *g, double *DpE, double *chiIp, double *chiP
     }
 }
 
-__global__ void chiIx_Px_kernel(int *h, double *d_DxE, double *chiIx, double *chiPx, int BINS) {
+__global__ void chiIx_Px_kernel(int *h, RealTypeX *d_DxE, double *chiIx, double *chiPx, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= 4 && i <= BINS + 1) {
         double chiIx_local = pow(h[i] - h[2 * BINS + 3 - i], 2) / d_DxE[i];
@@ -213,7 +237,7 @@ __global__ void chiIx_Px_kernel(int *h, double *d_DxE, double *chiIx, double *ch
 }
 
 
-int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, double *d_DxE, double *DpE, const char *filename, int BINS, double Et) {
+int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, RealTypeX *d_DxE, RealTypeP *DpE, const char *filename, int BINS, double Et) {
     double *d_chi2x, *d_chi2p, *d_chiIp, *d_chiPp, *d_chiIx, *d_chiPx;
 
     // Allocate memory for reduction variables on GPU

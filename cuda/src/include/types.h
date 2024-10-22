@@ -6,9 +6,9 @@
 using RealTypeConstant = float;
 
 // Intended to use RealTypeConstant for d_x, h_x, d_DxE 
-using RealTypeX = double;
+using RealTypeX = float;
 
 // // Use RealType2 for d_p, DpE, h_p, 
-// using RealType2 = double;
+using RealTypeP = float;
 
 #endif

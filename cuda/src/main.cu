@@ -45,13 +45,13 @@ int main() {
     printf("sigmaL=%f\n", sigmaL);
 
     // Unified Memory Allocation for arrays using cudaMallocManaged
-    double *h_p;
     RealTypeX *h_x;
+    RealTypeP *h_p;
     h_x = (RealTypeX *)malloc(sizeof(h_x[0]) * N_PART);
-    h_p = (double *)malloc(sizeof(h_p[0]) * N_PART);
+    h_p = (RealTypeP *)malloc(sizeof(h_p[0]) * N_PART);
 
-    double *d_p, *d_DpE;
-    double *d_x, *d_DxE;
+    RealTypeP *d_p, *d_DpE;
+    RealTypeX *d_x, *d_DxE;
     cudaMalloc(&d_x, sizeof(d_x[0]) * N_PART);
     cudaMalloc(&d_p, sizeof(d_p[0]) * N_PART);
     cudaMalloc(&d_DxE, sizeof(d_DxE[0]) * (2 * BINS + 4));

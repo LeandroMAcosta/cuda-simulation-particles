@@ -9,7 +9,7 @@
 
 using namespace std;
 
-__global__ void init_DpE_kernel(double *DpE, int N_PART, int BINS) {
+__global__ void init_DpE_kernel(RealTypeP *DpE, int N_PART, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (i >= 2 * BINS) return;
@@ -20,7 +20,7 @@ __global__ void init_DpE_kernel(double *DpE, int N_PART, int BINS) {
     DpE[i] = (numerator / denominator) * exp(exponent);
 }
 
-__global__ void init_DxE_kernel(double *d_DxE, int N_PART, int BINS) {
+__global__ void init_DxE_kernel(RealTypeX *d_DxE, int N_PART, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= (BINS + 1) << 1) return;
     if (i < 2) {
@@ -30,7 +30,7 @@ __global__ void init_DxE_kernel(double *d_DxE, int N_PART, int BINS) {
         d_DxE[2 * BINS + 2] = 0.0;
         d_DxE[2 * BINS + 3] = 0.0;
     }
-    d_DxE[i] = 1.0E-3f * N_PART;
+    d_DxE[i] = 1.0E-3 * N_PART;
 }
 
 __device__ uint32_t generate_random(uint32_t base_seed) {
@@ -63,7 +63,7 @@ __device__ double d_xorshift(uint32_t *seed) {
 //     return (double)x / (double)UINT32_MAX;
 // }
 
-__global__ void init_x_kernel(double* d_x, uint32_t base_seed, int N_PART) {
+__global__ void init_x_kernel(RealTypeX* d_x, uint32_t base_seed, int N_PART) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N_PART) return;
 
@@ -71,7 +71,7 @@ __global__ void init_x_kernel(double* d_x, uint32_t base_seed, int N_PART) {
     d_x[idx] = d_xorshift(&seed) * 0.5;
 }
 
-__global__ void init_p_kernel(double* d_p,  uint32_t base_seed, int N_PART) {
+__global__ void init_p_kernel(RealTypeP* d_p,  uint32_t base_seed, int N_PART) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= (N_PART >> 1)) return;
     
@@ -91,7 +91,7 @@ __global__ void init_p_kernel(double* d_p,  uint32_t base_seed, int N_PART) {
     
 }
 
-__global__ void update_histograms_kernel(double *d_x, double *d_p, int *h, int *g, int *hg, int N_PART, int BINS) {
+__global__ void update_histograms_kernel(RealTypeX *d_x, RealTypeP *d_p, int *h, int *g, int *hg, int N_PART, int BINS) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= N_PART) return;
 
@@ -108,7 +108,7 @@ __global__ void update_histograms_kernel(double *d_x, double *d_p, int *h, int *
 }
 
 // Kernel function to update positions and momenta
-__global__ void simulate_particle_motion(int number_of_steps, double *d_x, double *d_p, int N_PART, RealTypeConstant DT, RealTypeConstant M, RealTypeConstant sigmaL) {
+__global__ void simulate_particle_motion(int number_of_steps, RealTypeX *d_x, RealTypeP *d_p, int N_PART, RealTypeConstant DT, RealTypeConstant M, RealTypeConstant sigmaL) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (idx >= N_PART) return;
@@ -116,7 +116,7 @@ __global__ void simulate_particle_motion(int number_of_steps, double *d_x, doubl
     uint32_t seed = idx + blockIdx.x + threadIdx.x * 31;
 
     // Change to double for x_tmp since x is now double
-    double x_tmp = d_x[idx];
+    RealTypeX x_tmp = d_x[idx];
     double p_tmp = d_p[idx];  // Keep p_tmp as double
 
     int signop, k;
@@ -152,7 +152,7 @@ __global__ void simulate_particle_motion(int number_of_steps, double *d_x, doubl
 }
 
 // CUDA kernel for energy sum calculation
-__global__ void energy_sum_kernel(double *d_p, double *partialSum, int N_PART) {
+__global__ void energy_sum_kernel(RealTypeP *d_p, double *partialSum, int N_PART) {
     extern __shared__ double sharedData[];
     int tid = threadIdx.x;
     int i = blockIdx.x * blockDim.x + threadIdx.x;
