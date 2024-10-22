@@ -115,7 +115,7 @@ int main() {
         cudaMemcpy(d_p, h_p, sizeof(d_p[0]) * N_PART, cudaMemcpyHostToDevice);
     }
 
-    double Et = energy_sum(d_p, N_PART, evolution, M);
+    RealTypePartialSum Et = energy_sum(d_p, N_PART, evolution, M);
     cout << "PMIN=" << scientific << PMIN << " ALFA=" << ALFA << " Et=" << Et << endl;
 
     // Main loop to iterate through Ntandas

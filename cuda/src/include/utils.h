@@ -20,7 +20,7 @@ void read_data(char filename[], RealTypeX *h_x, RealTypeP *h_p, unsigned int *ev
 
 void save_data(char filename[], RealTypeX *h_x, RealTypeP *h_p, unsigned int evolution, int N_PART);
 
-double energy_sum(RealTypeP *d_p, int N_PART, unsigned int evolution, RealTypeConstant M);
+RealTypePartialSum energy_sum(RealTypeP *d_p, int N_PART, unsigned int evolution, RealTypeConstant M);
 
 int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, RealTypeX *d_DxE, RealTypeP *DpE, const char *filename, int BINS, double Et);
 
