@@ -2,10 +2,13 @@
 #define TYPES_H
 
 // Define your precision types
-// Intended to use RealTypeConstant for d_x, h_x, d_DxE, DT, M, Et, sigmaL, partial_sum, 
+// Intended to use RealTypeConstant for DT, M, Et, sigmaL 
 using RealTypeConstant = float;
 
-// Use RealType2 for d_p, DpE, h_p, 
-using RealType2 = double;
+// Intended to use RealTypeConstant for d_x, h_x, d_DxE 
+using RealTypeX = double;
+
+// // Use RealType2 for d_p, DpE, h_p, 
+// using RealType2 = double;
 
 #endif

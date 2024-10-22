@@ -46,8 +46,8 @@ int main() {
 
     // Unified Memory Allocation for arrays using cudaMallocManaged
     double *h_p;
-    double *h_x;
-    h_x = (double *)malloc(sizeof(h_x[0]) * N_PART);
+    RealTypeX *h_x;
+    h_x = (RealTypeX *)malloc(sizeof(h_x[0]) * N_PART);
     h_p = (double *)malloc(sizeof(h_p[0]) * N_PART);
 
     double *d_p, *d_DpE;

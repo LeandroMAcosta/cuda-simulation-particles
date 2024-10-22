@@ -16,9 +16,9 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealType
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
                                bool *resume, bool *dump, RealTypeConstant *sigmaL);
 
-void read_data(char filename[], double *h_x, double *h_p, unsigned int *evolution, int N_PART);
+void read_data(char filename[], RealTypeX *h_x, double *h_p, unsigned int *evolution, int N_PART);
 
-void save_data(char filename[], double *h_x, double *h_p, unsigned int evolution, int N_PART);
+void save_data(char filename[], RealTypeX *h_x, double *h_p, unsigned int evolution, int N_PART);
 
 double energy_sum(double *d_p, int N_PART, unsigned int evolution, RealTypeConstant M);
 

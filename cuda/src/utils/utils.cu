@@ -56,7 +56,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealType
     fclose(inputFile);
 }
 
-void read_data(char filename[], double *h_x, double *h_p, unsigned int *evolution, int N_PART) {
+void read_data(char filename[], RealTypeX *h_x, double *h_p, unsigned int *evolution, int N_PART) {
     FILE *readFile = fopen(filename, "r");
     if (readFile == NULL)
     {
@@ -104,7 +104,7 @@ double energy_sum(double *d_p, int N_PART, unsigned int evolution, RealTypeConst
     return (sumEnergy / (2 * M));
 }
 
-void save_data(char filename[], double *h_x, double *h_p, unsigned int evolution, int N_PART) {
+void save_data(char filename[], RealTypeX *h_x, double *h_p, unsigned int evolution, int N_PART) {
     ofstream saveFile(filename, ios::binary);
     if (!saveFile) {
         cerr << "Error al abrir el archivo " << filename << endl;
