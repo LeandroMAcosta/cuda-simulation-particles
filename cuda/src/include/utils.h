@@ -10,26 +10,18 @@
 #include <stdbool.h>
 #include <time.h>
 
-inline double d_xorshift(uint32_t *state)
-{
-    uint32_t x = *state;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    *state = x;
-    return (double)x / (double)UINT32_MAX;
-}
+#include "../include/types.h"
 
-void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *DT, float *M, int *N_THREADS,
+void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealType1 *DT, RealType1 *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
-                               bool *resume, bool *dump, float *sigmaL);
+                               bool *resume, bool *dump, RealType1 *sigmaL);
 
-void read_data(char filename[], float *h_x, double *h_p, unsigned int *evolution, int N_PART);
+void read_data(char filename[], double *h_x, double *h_p, unsigned int *evolution, int N_PART);
 
-void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution, int N_PART);
+void save_data(char filename[], double *h_x, double *h_p, unsigned int evolution, int N_PART);
 
-float energy_sum(double *d_p, int N_PART, unsigned int evolution, float M);
+double energy_sum(double *d_p, int N_PART, unsigned int evolution, RealType1 M);
 
-int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, float *d_DxE, double *DpE, const char *filename, int BINS, float Et);
+int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, double *d_DxE, double *DpE, const char *filename, int BINS, double Et);
 
 #endif

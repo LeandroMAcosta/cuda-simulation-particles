@@ -8,27 +8,23 @@
 
 #include "./include/utils.h"
 #include "./include/histogram_kernels.h"
+#include "./include/types.h"
 
 using namespace std;
 
-int main()
-{
+int main() {
     int N_THREADS = 0, N_PART = 0, BINS = 0;
     bool resume, dump;
 
     unsigned int Ntandas = 0u;
     char inputFilename[255], saveFilename[255];
     
-    float M;
-    float DT; 
-    float sigmaL = 0.0f;
+    RealType1 M, DT, sigmaL;
 
     int X0 = 1;
     char filename[32];
 
     unsigned int evolution = 0u;
-    // float alfa = 1.0e-4f;
-    // float pmin = 2.0E-026f, pmax = 3.0E-023f;
 
     int steps[500];
     char data_filename[] = "datos.in";
@@ -50,16 +46,16 @@ int main()
 
     // Unified Memory Allocation for arrays using cudaMallocManaged
     double *h_p;
-    float *h_x;
-    h_x = (float *)malloc(sizeof(float) * N_PART);
-    h_p = (double *)malloc(sizeof(double) * N_PART);
+    double *h_x;
+    h_x = (double *)malloc(sizeof(h_x[0]) * N_PART);
+    h_p = (double *)malloc(sizeof(h_p[0]) * N_PART);
 
     double *d_p, *d_DpE;
-    float *d_x, *d_DxE;
-    cudaMalloc(&d_x, sizeof(float) * N_PART);
-    cudaMalloc(&d_p, sizeof(double) * N_PART);
-    cudaMalloc(&d_DxE, sizeof(float) * (2 * BINS + 4));
-    cudaMalloc(&d_DpE, sizeof(double) * (2 * BINS));
+    double *d_x, *d_DxE;
+    cudaMalloc(&d_x, sizeof(d_x[0]) * N_PART);
+    cudaMalloc(&d_p, sizeof(d_p[0]) * N_PART);
+    cudaMalloc(&d_DxE, sizeof(d_DxE[0]) * (2 * BINS + 4));
+    cudaMalloc(&d_DpE, sizeof(d_DpE[0]) * (2 * BINS));
 
     // Launch CUDA kernel for parallel d_DpE computation
     int threadsPerBlock = 512;
@@ -107,7 +103,7 @@ int main()
             update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(d_x, d_p, d_h, d_g, d_hg, N_PART, BINS);
             cudaDeviceSynchronize();
 
-            float Et = energy_sum(d_p, N_PART, evolution, M);
+            double Et = energy_sum(d_p, N_PART, evolution, M);
             X0 = make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, d_DxE, d_DpE, "X0000000.dat", BINS, Et);
             if (X0 == 1) {
                 cout << "Falló algún chi2: X0=" << X0 << endl;
@@ -115,11 +111,11 @@ int main()
         }
     } else {
         read_data(inputFilename, h_x, h_p, &evolution, N_PART);
-        cudaMemcpy(d_x, h_x, sizeof(float) * N_PART, cudaMemcpyHostToDevice);
-        cudaMemcpy(d_p, h_p, sizeof(double) * N_PART, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_x, h_x, sizeof(d_x[0]) * N_PART, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_p, h_p, sizeof(d_p[0]) * N_PART, cudaMemcpyHostToDevice);
     }
 
-    float Et = energy_sum(d_p, N_PART, evolution, M);
+    double Et = energy_sum(d_p, N_PART, evolution, M);
     cout << "PMIN=" << scientific << PMIN << " ALFA=" << ALFA << " Et=" << Et << endl;
 
     // Main loop to iterate through Ntandas
@@ -140,13 +136,13 @@ int main()
             sprintf(filename, "X%1.3e.dat", static_cast<double>(evolution));
             char *e = static_cast<char*>(memchr(filename, 'e', 32)); // Explicit cast to char*
             if (e) {
-                strcpy(e + 1, e + 3); // Adjusting the position after 'e'
+                strcpy(e + 1, e + 3);
             }
         }
 
         if (dump) {
-            cudaMemcpy(h_x, d_x, sizeof(float) * N_PART, cudaMemcpyDeviceToHost);
-            cudaMemcpy(h_p, d_p, sizeof(double) * N_PART, cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_x, d_x, sizeof(h_x[0]) * N_PART, cudaMemcpyDeviceToHost);
+            cudaMemcpy(h_p, d_p, sizeof(h_p[0]) * N_PART, cudaMemcpyDeviceToHost);
             save_data(saveFilename, h_x, d_p, evolution, N_PART);
         }
 

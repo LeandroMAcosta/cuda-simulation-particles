@@ -8,6 +8,7 @@
 #include "../include/constants.h"
 #include "../include/utils.h"
 #include "../include/histogram_kernels.h"
+#include "../include/types.h"
 
 
 using namespace std;
@@ -17,10 +18,9 @@ static double d_rand() {
     return static_cast<double>(rand()) / static_cast<double>(RAND_MAX);
 }
 
-void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *DT, float *M, int *N_THREADS,
+void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealType1 *DT, RealType1 *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
-                               bool *resume, bool *dump, float *sigmaL)
-{
+                               bool *resume, bool *dump, RealType1 *sigmaL) {
     char du[4];
     FILE *inputFile = fopen(filename, "r");
     if (inputFile == NULL) {
@@ -30,8 +30,12 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *D
     fscanf(inputFile, " %*[^\n]");
     fscanf(inputFile, " %*[^:]: %d", N_PART);
     fscanf(inputFile, " %*[^:]: %d", BINS);
+
+    // fscanf(inputFile, " %*[^:]: %lf", DT);
+    // fscanf(inputFile, " %*[^:]: %lf", M);
     fscanf(inputFile, " %*[^:]: %f", DT);
     fscanf(inputFile, " %*[^:]: %f", M);
+
     fscanf(inputFile, " %*[^:]: %d", N_THREADS);
     fscanf(inputFile, " %*[^\n]");
     *Ntandas = 0;
@@ -39,19 +43,20 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, float *D
         (*Ntandas)++;
     }
     fscanf(inputFile, " %*[^:]: %s %s", du, inputFilename);
-    // *resume = strcmp(du, "sí");
     *resume = (strcmp(du, "sí") == 0);
     cout << du << " lee " << inputFilename << "\t";
     fscanf(inputFile, " %*[^:]: %s %s", du, saveFilename);
     cout << du << " escribe " << saveFilename << "\t";
     *dump = (strcmp(du, "sí") == 0);
+
+    // fscanf(inputFile, " %*[^:]: %lf", sigmaL);
     fscanf(inputFile, " %*[^:]: %f", sigmaL);
+
     cout << "sigma(L) = " << *sigmaL << endl;
     fclose(inputFile);
 }
 
-void read_data(char filename[], float *h_x, double *h_p, unsigned int *evolution, int N_PART)
-{
+void read_data(char filename[], double *h_x, double *h_p, unsigned int *evolution, int N_PART) {
     FILE *readFile = fopen(filename, "r");
     if (readFile == NULL)
     {
@@ -64,27 +69,27 @@ void read_data(char filename[], float *h_x, double *h_p, unsigned int *evolution
     fclose(readFile);
 }
 
-float energy_sum(double *d_p, int N_PART, unsigned int evolution, float M) {
-    float *d_partialSum;
-    float *partialSum;
+double energy_sum(double *d_p, int N_PART, unsigned int evolution, RealType1 M) {
+    double *d_partialSum;
+    double *partialSum;
     int threadsPerBlock = 256; // Define the number of threads per block
     int blocksPerGrid = (N_PART + threadsPerBlock - 1) / threadsPerBlock; // Calculate grid size
 
     // Allocate host memory for partial sums
-    partialSum = (float*)malloc(blocksPerGrid * sizeof(double));
+    partialSum = (double*)malloc(blocksPerGrid * sizeof(partialSum[0]));
 
     // Allocate device memory
-    cudaMalloc(&d_partialSum, blocksPerGrid * sizeof(float));
+    cudaMalloc(&d_partialSum, blocksPerGrid * sizeof(d_partialSum[0]));
 
     // Launch kernel
     size_t shared_memory_size = threadsPerBlock * sizeof(double);
     energy_sum_kernel<<<blocksPerGrid, threadsPerBlock, shared_memory_size>>>(d_p, d_partialSum, N_PART);
 
     // Copy partial sums back to host
-    cudaMemcpy(partialSum, d_partialSum, blocksPerGrid * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaMemcpy(partialSum, d_partialSum, blocksPerGrid * sizeof(partialSum[0]), cudaMemcpyDeviceToHost);
 
     // Final reduction on the host
-    float sumEnergy = 0.0;
+    double sumEnergy = 0.0;
     for (int i = 0; i < blocksPerGrid; i++) {
         sumEnergy += partialSum[i];
     }
@@ -96,10 +101,10 @@ float energy_sum(double *d_p, int N_PART, unsigned int evolution, float M) {
     // Output the result
     cout << "Sum energy: " << sumEnergy << endl;
     std::cout << "N° de pasos " << evolution << "\tEnergía total = " << scientific << sumEnergy / (2 * M) << std::endl;
-    return (float)(sumEnergy / (2 * M));
+    return (sumEnergy / (2 * M));
 }
 
-void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution, int N_PART) {
+void save_data(char filename[], double *h_x, double *h_p, unsigned int evolution, int N_PART) {
     ofstream saveFile(filename, ios::binary);
     if (!saveFile) {
         cerr << "Error al abrir el archivo " << filename << endl;
@@ -111,7 +116,7 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
     int Npmod = (0 * N_PART) / (1 << 21);
     if (evolution % 1000000 == 0 && Npmod > 0) {
         double f = 0.7071; // fraccion de p+ que queda en p+'
-        double *sqrtp2 = static_cast<double *>(malloc(sizeof(double) * Npmod));
+        double *sqrtp2 = static_cast<double *>(malloc(sizeof(sqrtp2[0]) * Npmod));
         int np = 0;
         int i0 = d_rand() * N_PART;
         int i = i0;
@@ -159,9 +164,9 @@ void save_data(char filename[], float *h_x, double *h_p, unsigned int evolution,
     saveFile.write(reinterpret_cast<const char *>(h_p), sizeof(h_p[0]) * N_PART);
 }
 
-__global__ void chi2x_kernel(int *d_h, float *d_DxE, double *chi2x, int BINS, bool isX0000000) {
+__global__ void chi2x_kernel(int *d_h, double *d_DxE, double *chi2x, int BINS, bool isX0000000) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
-    float local_chi2x = 0.0f;
+    double local_chi2x = 0.0;
 
     if (isX0000000) {
         if (i >= BINS && i < 2 * BINS) {
@@ -196,11 +201,11 @@ __global__ void chiIp_Pp_kernel(int *g, double *DpE, double *chiIp, double *chiP
     }
 }
 
-__global__ void chiIx_Px_kernel(int *h, float *d_DxE, double *chiIx, double *chiPx, int BINS) {
+__global__ void chiIx_Px_kernel(int *h, double *d_DxE, double *chiIx, double *chiPx, int BINS) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= 4 && i <= BINS + 1) {
-        float chiIx_local = pow(h[i] - h[2 * BINS + 3 - i], 2) / d_DxE[i];
-        float chiPx_local = pow(h[i] + h[2 * BINS + 3 - i] - 2.0 * d_DxE[i], 2) / d_DxE[i];
+        double chiIx_local = pow(h[i] - h[2 * BINS + 3 - i], 2) / d_DxE[i];
+        double chiPx_local = pow(h[i] + h[2 * BINS + 3 - i] - 2.0 * d_DxE[i], 2) / d_DxE[i];
 
         atomicAdd(chiIx, chiIx_local);
         atomicAdd(chiPx, chiPx_local);
@@ -208,16 +213,16 @@ __global__ void chiIx_Px_kernel(int *h, float *d_DxE, double *chiIx, double *chi
 }
 
 
-int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, float *d_DxE, double *DpE, const char *filename, int BINS, float Et) {
+int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, double *d_DxE, double *DpE, const char *filename, int BINS, double Et) {
     double *d_chi2x, *d_chi2p, *d_chiIp, *d_chiPp, *d_chiIx, *d_chiPx;
 
     // Allocate memory for reduction variables on GPU
-    cudaMallocManaged(&d_chi2x, sizeof(double));
-    cudaMallocManaged(&d_chi2p, sizeof(double));
-    cudaMallocManaged(&d_chiIp, sizeof(double));
-    cudaMallocManaged(&d_chiPp, sizeof(double));
-    cudaMallocManaged(&d_chiIx, sizeof(double));
-    cudaMallocManaged(&d_chiPx, sizeof(double));
+    cudaMallocManaged(&d_chi2x, sizeof(d_chi2x[0]));
+    cudaMallocManaged(&d_chi2p, sizeof(d_chi2p[0]));
+    cudaMallocManaged(&d_chiIp, sizeof(d_chiIp[0]));
+    cudaMallocManaged(&d_chiPp, sizeof(d_chiPp[0]));
+    cudaMallocManaged(&d_chiIx, sizeof(d_chiIx[0]));
+    cudaMallocManaged(&d_chiPx, sizeof(d_chiPx[0]));
 
     *d_chi2x = 0.0;
     *d_chi2p = 0.0;
