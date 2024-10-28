@@ -14,7 +14,8 @@ int main()
     int X0 = 1;
     char filename[32];
 
-    double d = 1.0e-72, alfa = 1.0e-4;
+    // double d = 1.0e-72, alfa = 1.0e-4;
+    double d = 1.0e-72, alfa = 0;
     unsigned int evolution = 0u;
     double pmin = 2.0E-026, pmax = 3.0E-023;
 
@@ -115,24 +116,25 @@ int main()
         // iter_in_range code here:
         long int k;
         int signop;
-#pragma omp parallel shared(x, p)
+        #pragma omp parallel shared(x, p)
         {
             uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-#pragma omp for private(k, signop) schedule(dynamic)
+            
+            #pragma omp for private(k, signop) schedule(dynamic)
             for (int i = 0; i < N_PART; ++i)
             {
                 double x_tmp = x[i];
                 double p_tmp = p[i];
-//	printf("i=%d    x=%9.6f  p=%12.9E\n",i,x[i],p[i]);
+
                 for (int step = 0; step < steps[j]; step++)
                 {
-                    x_tmp += p_tmp * DT / M; // ¡OJO que p_tmp tiene un SIGNO!
+                    x_tmp += p_tmp * DT / M;
                     signop = copysign(1.0, p_tmp);
                     k = trunc(x_tmp + 0.5 * signop);
-//     if ( (x[i]!=x[i]) || (p[i]!=p[i]) || (x_tmp!=x_tmp) || (p_tmp!=p_tmp) ) { printf("i=%d   k=%ld   x_tmp=%9.6f   p_tmp=%12.9E   step=%d\n",i,k,x_tmp,p_tmp,step); step = steps[j]; }
+
                     if (k != 0)
                     {
-  			double randomValue = d_xorshift(&seed);
+  			            double randomValue = d_xorshift(&seed);
                         double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
                         randomValue = d_xorshift(&seed);
                         double xi2 = 2.0 * PI * randomValue;
@@ -165,7 +167,7 @@ int main()
             }
         }
 // End of iter_in_range code.
-#pragma omp for schedule(static)
+        #pragma omp for schedule(static)
         for (int i = 0; i < N_PART; i++)
         {
 //     { printf("x=%9.6f   h_idx=%9.6f\n",x[i],floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0)); }
