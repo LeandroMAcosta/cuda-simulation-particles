@@ -1,9 +1,18 @@
+# CC := nvcc
+# CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -O3 -march=native -ffast-math -g" -arch=sm_61
+
+# CLIBS := -lm -lgomp
+# OMP := -Xcompiler=-fopenmp
+
 CC := nvcc
-# CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -pedantic -O3 -march=native -ffast-math -g" -arch=sm_61
-CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -O3 -march=native -ffast-math -g" -arch=sm_61
+CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -O3 -march=native -ffast-math -g -fopenmp" -arch=sm_61
 
 CLIBS := -lm -lgomp
-OMP := -Xcompiler=-fopenmp
+
+SRC_DIR := src
+BUILD_DIR := build
+#  Until here
+
 
 SRC_DIR := src
 BUILD_DIR := build
@@ -16,7 +25,7 @@ KERNELS_OBJ_DIR := $(BUILD_DIR)/kernels
 UTILS_OBJ_DIR := $(BUILD_DIR)/utils
 
 OBJS := $(KERNELS_OBJ_DIR)/histogram_kernels.o $(UTILS_OBJ_DIR)/utils.o
-DEPS := $(INCLUDE_DIR)/constants.h $(INCLUDE_DIR)/histogram_kernels.h $(INCLUDE_DIR)/utils.h
+DEPS := $(INCLUDE_DIR)/constants.h $(INCLUDE_DIR)/histogram_kernels.h $(INCLUDE_DIR)/utils.h $(INCLUDE_DIR)/types.h
 
 # Test script
 TEST_SCRIPT = ./test_script.sh  # Replace with your actual script name
