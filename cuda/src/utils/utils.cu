@@ -34,10 +34,10 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealType
     fscanf(inputFile, " %*[^:]: %d", N_PART);
     fscanf(inputFile, " %*[^:]: %d", BINS);
 
-    // fscanf(inputFile, " %*[^:]: %lf", DT);
-    // fscanf(inputFile, " %*[^:]: %lf", M);
-    fscanf(inputFile, " %*[^:]: %f", DT);
-    fscanf(inputFile, " %*[^:]: %f", M);
+    fscanf(inputFile, " %*[^:]: %lf", DT);
+    fscanf(inputFile, " %*[^:]: %lf", M);
+    // fscanf(inputFile, " %*[^:]: %f", DT);
+    // fscanf(inputFile, " %*[^:]: %f", M);
 
     fscanf(inputFile, " %*[^:]: %d", N_THREADS);
     fscanf(inputFile, " %*[^\n]");
@@ -52,8 +52,8 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealType
     cout << du << " escribe " << saveFilename << "\t";
     *dump = (strcmp(du, "sí") == 0);
 
-    // fscanf(inputFile, " %*[^:]: %lf", sigmaL);
-    fscanf(inputFile, " %*[^:]: %f", sigmaL);
+    fscanf(inputFile, " %*[^:]: %lf", sigmaL);
+    // fscanf(inputFile, " %*[^:]: %f", sigmaL);
 
     cout << "sigma(L) = " << *sigmaL << endl;
     fclose(inputFile);
