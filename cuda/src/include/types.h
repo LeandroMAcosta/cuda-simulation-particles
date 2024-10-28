@@ -3,16 +3,16 @@
 
 // Define your precision types
 // Intended to use RealTypeConstant for DT, M, Et, sigmaL 
-using RealTypeConstant = float;
+using RealTypeConstant = double;
 
 // Intended to use RealTypeConstant for d_x, h_x, d_DxE 
-using RealTypeX = float;
+using RealTypeX = double;
 
 // Use RealType2 for d_p, DpE, h_p, 
-using RealTypeP = float;
+using RealTypeP = double;
 
 // Use RealTypePartialSum for partial_sum, d_partial_sum
 // and return type for energy_sum
-using RealTypePartialSum = float;
+using RealTypePartialSum = double;
 
 #endif
