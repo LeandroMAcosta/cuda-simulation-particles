@@ -8,7 +8,7 @@ gnuplot_script2="plot_histograms_3_4.gp"
 cat <<EOF > $gnuplot_script1
 set terminal pngcairo size 1200,600
 set output 'histogram_1_2.png'
-set title "CUDA Simulation (Columns 1:2)"
+set title "OMP Simulation (Columns 1:2)"
 set xlabel "x (Position)"
 set ylabel "Population"
 set style fill solid 1.0
@@ -23,7 +23,7 @@ EOF
 cat <<EOF > $gnuplot_script2
 set terminal pngcairo size 1200,600
 set output 'histogram_3_4.png'
-set title "CUDA Simulation (Columns 3:4)"
+set title "OMP Simulation (Columns 3:4)"
 set xlabel "x (Position)"
 set ylabel "Population"
 set style fill solid 1.0
