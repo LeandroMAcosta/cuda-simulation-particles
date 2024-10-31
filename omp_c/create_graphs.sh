@@ -33,8 +33,15 @@ set key outside right top
 p \\
 EOF
 
-# Loop through all .dat files and append the plot commands for both scripts
-for file in *.dat; do
+# Check if parameters are provided; if so, iterate over them, otherwise use *.dat files
+if [ "$#" -gt 0 ]; then
+    files=("$@")
+else
+    files=(*.dat)
+fi
+
+# Loop through all specified files and append the plot commands for both scripts
+for file in "${files[@]}"; do
     if [[ "$file" == *.dat ]]; then
         echo "  '$file' u 1:2 w l t '$file', \\" >> $gnuplot_script1
         echo "  '$file' u 3:4 w l t '$file', \\" >> $gnuplot_script2
