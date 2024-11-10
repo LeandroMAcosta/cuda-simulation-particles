@@ -67,28 +67,8 @@ void read_data(char filename[], RealTypeX *h_x, RealTypeP *h_p, unsigned int *ev
         exit(1);
     }
     fread(evolution, sizeof(*evolution), 1, readFile); // lee bien evolution como unsigned int
-
-    if constexpr (std::is_same<RealTypeX, double>::value) {
-        fread(h_x, sizeof(h_x[0]) * N_PART, 1, readFile);
-    } else if (std::is_same<RealTypeX, float>::value) {
-        double *h_x_float = static_cast<double *>(malloc(sizeof(h_x_float[0]) * N_PART));
-        fread(h_x_float, sizeof(h_x_float[0]) * N_PART, 1, readFile);
-        for (int i = 0; i < N_PART; i++) {
-            h_x[i] = static_cast<RealTypeX>(h_x_float[i]);
-        }
-        free(h_x_float);
-    }
-
-    if constexpr (std::is_same<RealTypeP, double>::value) {
-        fread(h_p, sizeof(h_p[0]) * N_PART, 1, readFile);
-    } else if (std::is_same<RealTypeP, float>::value) {
-        double *h_p_float = static_cast<double *>(malloc(sizeof(h_p_float[0]) * N_PART));
-        fread(h_p_float, sizeof(h_p_float[0]) * N_PART, 1, readFile);
-        for (int i = 0; i < N_PART; i++) {
-            h_p[i] = static_cast<RealTypeP>(h_p_float[i]);
-        }
-        free(h_p_float);
-    }
+    fread(h_x, sizeof(h_x[0]) * N_PART, 1, readFile);
+    fread(h_p, sizeof(h_p[0]) * N_PART, 1, readFile);
 
     fclose(readFile);
 }

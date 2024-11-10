@@ -110,6 +110,7 @@ int main() {
             }
         }
     } else {
+        cout << "Resuming from " << inputFilename << endl;
         read_data(inputFilename, h_x, h_p, &evolution, N_PART);
         cudaMemcpy(d_x, h_x, sizeof(d_x[0]) * N_PART, cudaMemcpyHostToDevice);
         cudaMemcpy(d_p, h_p, sizeof(d_p[0]) * N_PART, cudaMemcpyHostToDevice);
@@ -128,6 +129,7 @@ int main() {
 
         int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
         update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(d_x, d_p, d_h, d_g, d_hg, N_PART, BINS);
+        cudaDeviceSynchronize();
 
         evolution += steps[j];
         if (evolution < 10000000) {
@@ -143,7 +145,8 @@ int main() {
         if (dump) {
             cudaMemcpy(h_x, d_x, sizeof(h_x[0]) * N_PART, cudaMemcpyDeviceToHost);
             cudaMemcpy(h_p, d_p, sizeof(h_p[0]) * N_PART, cudaMemcpyDeviceToHost);
-            save_data(saveFilename, h_x, d_p, evolution, N_PART);
+            cout << "Guardando datos en " << saveFilename << endl;
+            save_data(saveFilename, h_x, h_p, evolution, N_PART);
         }
 
         Et = energy_sum(d_p, N_PART, evolution, M);

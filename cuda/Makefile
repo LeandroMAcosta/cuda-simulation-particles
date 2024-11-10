@@ -5,6 +5,7 @@
 # OMP := -Xcompiler=-fopenmp
 
 CC := nvcc
+# CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -O0 -march=native -ffast-math -g -fopenmp" -arch=sm_61
 CFLAGS := -std=c++14 -Xcompiler="-Wall -Wextra -O3 -march=native -ffast-math -g -fopenmp" -arch=sm_61
 
 CLIBS := -lm -lgomp
