@@ -140,8 +140,8 @@ __global__ void simulate_particle_motion(int number_of_steps, RealTypeX *d_x, Re
         p_tmp = fabs(p_tmp);
 
         for (int l = 1; l <= labs(k); ++l) {
-            p_tmp = sqrt(max(0.0, p_tmp * p_tmp + ALFA * (p_tmp - PMIN) * (PMAX - p_tmp) * (d_xorshift(&seed) - 0.5)));
-            // p_tmp = sqrt(p_tmp * p_tmp + ALFA * (p_tmp - PMIN) * (PMAX - p_tmp) * (d_xorshift(&seed) - 0.5));
+            // p_tmp = sqrt(max(0.0, p_tmp * p_tmp + ALFA * (p_tmp - PMIN) * (PMAX - p_tmp) * (d_xorshift(&seed) - 0.5)));
+            p_tmp = sqrt(p_tmp * p_tmp + ALFA * (p_tmp - PMIN) * (PMAX - p_tmp) * (d_xorshift(&seed) - 0.5));
         }
         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop;
     }

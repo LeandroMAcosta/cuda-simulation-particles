@@ -114,6 +114,11 @@ int main() {
         read_data(inputFilename, h_x, h_p, &evolution, N_PART);
         cudaMemcpy(d_x, h_x, sizeof(d_x[0]) * N_PART, cudaMemcpyHostToDevice);
         cudaMemcpy(d_p, h_p, sizeof(d_p[0]) * N_PART, cudaMemcpyHostToDevice);
+
+        // TODO: Check if this is necessary
+        double Et = energy_sum(d_p, N_PART, evolution, M);
+        make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, d_DxE, d_DpE, filename, BINS, Et);
+
     }
 
     RealTypePartialSum Et = energy_sum(d_p, N_PART, evolution, M);
@@ -142,15 +147,15 @@ int main() {
             }
         }
 
-        if (dump) {
-            cudaMemcpy(h_x, d_x, sizeof(h_x[0]) * N_PART, cudaMemcpyDeviceToHost);
-            cudaMemcpy(h_p, d_p, sizeof(h_p[0]) * N_PART, cudaMemcpyDeviceToHost);
-            cout << "Guardando datos en " << saveFilename << endl;
-            save_data(saveFilename, h_x, h_p, evolution, N_PART);
-        }
-
         Et = energy_sum(d_p, N_PART, evolution, M);
         make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, d_DxE, d_DpE, filename, BINS, Et);
+    }
+
+    if (dump) {
+        cudaMemcpy(h_x, d_x, sizeof(h_x[0]) * N_PART, cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_p, d_p, sizeof(h_p[0]) * N_PART, cudaMemcpyDeviceToHost);
+        cout << "Guardando datos en " << saveFilename << endl;
+        save_data(saveFilename, h_x, h_p, evolution, N_PART);
     }
 
     cout << "Completo evolution = " << evolution << endl;
