@@ -5,9 +5,9 @@
        Masa de las partículas en kg (M): 6.646473667973E-27
 Nº de hilos para la corrida (N_THREADS): 32
 Tandas (nº de pasos) para esta corrida (steps): 
-0 200000 300000 500000
+0 10000 20000 20000 20000 20000
 # 0 10000000 10000000 10000000 10000000 10000000 10000000
 #   +1M              +3M                    +6M                             +10M
       Retomar desde un archivo anterior: sí retoma.dmp
           Volcar los datos a un archivo: sí graba.dmp
-            Incertidumbre para L (en m): 0.0001
+            Incertidumbre para L (en m): 0

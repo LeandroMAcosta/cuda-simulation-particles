@@ -21,6 +21,20 @@ static double d_rand() {
     return static_cast<double>(rand()) / static_cast<double>(RAND_MAX);
 }
 
+// Define format specifier based on type
+template<typename T>
+const char* getFormatSpecifier();
+
+template<>
+const char* getFormatSpecifier<float>() {
+    return "%f";
+}
+
+template<>
+const char* getFormatSpecifier<double>() {
+    return "%lf";
+}
+
 void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealTypeConstant *DT, RealTypeConstant *M, int *N_THREADS,
                                unsigned int *Ntandas, int steps[], char inputFilename[], char saveFilename[],
                                bool *resume, bool *dump, RealTypeConstant *sigmaL) {
@@ -30,32 +44,49 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, RealType
         cout << "Error al abrir el archivo " << filename << endl;
         exit(1);
     }
+
+    // Skip the first line
     fscanf(inputFile, " %*[^\n]");
+    
+    // Read integer values
     fscanf(inputFile, " %*[^:]: %d", N_PART);
     fscanf(inputFile, " %*[^:]: %d", BINS);
 
-    fscanf(inputFile, " %*[^:]: %lf", DT);
-    fscanf(inputFile, " %*[^:]: %lf", M);
-    // fscanf(inputFile, " %*[^:]: %f", DT);
-    // fscanf(inputFile, " %*[^:]: %f", M);
+    // Read RealTypeConstant (float or double)
+    fscanf(inputFile, " %*[^:]: ");
+    fscanf(inputFile, getFormatSpecifier<RealTypeConstant>(), DT);
+    fscanf(inputFile, " %*[^:]: ");
+    fscanf(inputFile, getFormatSpecifier<RealTypeConstant>(), M);
 
+    // Read another integer value
     fscanf(inputFile, " %*[^:]: %d", N_THREADS);
+
+    // Skip a line
     fscanf(inputFile, " %*[^\n]");
+    
+    // Read the steps array
     *Ntandas = 0;
     while (fscanf(inputFile, " %d", &steps[*Ntandas]) == 1) {
         (*Ntandas)++;
     }
+
+    // Read resume and input filename
     fscanf(inputFile, " %*[^:]: %s %s", du, inputFilename);
     *resume = (strcmp(du, "sí") == 0);
     cout << du << " lee " << inputFilename << "\t";
+
+    // Read dump and save filename
     fscanf(inputFile, " %*[^:]: %s %s", du, saveFilename);
     cout << du << " escribe " << saveFilename << "\t";
     *dump = (strcmp(du, "sí") == 0);
 
-    fscanf(inputFile, " %*[^:]: %lf", sigmaL);
-    // fscanf(inputFile, " %*[^:]: %f", sigmaL);
+    // Read sigmaL (float or double)
+    fscanf(inputFile, " %*[^:]: ");
+    fscanf(inputFile, getFormatSpecifier<RealTypeConstant>(), sigmaL);
 
     cout << "sigma(L) = " << *sigmaL << endl;
+
+    // Close the file
     fclose(inputFile);
 }
 
@@ -67,8 +98,30 @@ void read_data(char filename[], RealTypeX *h_x, RealTypeP *h_p, unsigned int *ev
         exit(1);
     }
     fread(evolution, sizeof(*evolution), 1, readFile); // lee bien evolution como unsigned int
-    fread(h_x, sizeof(h_x[0]) * N_PART, 1, readFile);
-    fread(h_p, sizeof(h_p[0]) * N_PART, 1, readFile);
+
+
+    // If RealTypeX is float, parse the second line to float
+    if (std::is_same<RealTypeX, float>::value) {
+        for (int i = 0; i < N_PART; i++) {
+            double x;
+            fread(&x, sizeof(x), 1, readFile);
+            h_x[i] = (float)x;
+        }
+    } else {
+        fread(h_x, sizeof(h_x[0]) * N_PART, 1, readFile);
+    }
+    // fread(h_x, sizeof(h_x[0]) * N_PART, 1, readFile);
+
+    if (std::is_same<RealTypeP, float>::value) {
+        for (int i = 0; i < N_PART; i++) {
+            double p;
+            fread(&p, sizeof(p), 1, readFile);
+            h_p[i] = (float)p;
+        }
+    } else {
+        fread(h_p, sizeof(h_p[0]) * N_PART, 1, readFile);
+    }
+    // fread(h_p, sizeof(h_p[0]) * N_PART, 1, readFile);
 
     fclose(readFile);
 }
@@ -218,15 +271,35 @@ __global__ void chiIx_Px_kernel(int *h, RealTypeX *d_DxE, double *chiIx, double 
 
 
 int make_hist(int *h_h, int *h_g, int *h_hg, int *d_h, int *d_g, int *d_hg, RealTypeX *d_DxE, RealTypeP *d_DpE, const char *filename, int BINS, double Et) {
-    double *d_chi2x, *d_chi2p, *d_chiIp, *d_chiPp, *d_chiIx, *d_chiPx;
 
     // Allocate memory for reduction variables on GPU
-    cudaMallocManaged(&d_chi2x, sizeof(d_chi2x[0]));
-    cudaMallocManaged(&d_chi2p, sizeof(d_chi2p[0]));
-    cudaMallocManaged(&d_chiIp, sizeof(d_chiIp[0]));
-    cudaMallocManaged(&d_chiPp, sizeof(d_chiPp[0]));
-    cudaMallocManaged(&d_chiIx, sizeof(d_chiIx[0]));
-    cudaMallocManaged(&d_chiPx, sizeof(d_chiPx[0]));
+    double *d_chi2x, *d_chi2p, *d_chiIp, *d_chiPp, *d_chiIx, *d_chiPx;
+
+    if (cudaMallocManaged(&d_chi2x, sizeof(double)) != cudaSuccess) {
+        printf("Failed to allocate memory for d_chi2x\n");
+        exit(1);
+    }
+    if (cudaMallocManaged(&d_chi2p, sizeof(double)) != cudaSuccess) {
+        printf("Failed to allocate memory for d_chi2p\n");
+        exit(1);
+    }
+    if (cudaMallocManaged(&d_chiIp, sizeof(double)) != cudaSuccess) {
+        printf("Failed to allocate memory for d_chiIp\n");
+        exit(1);
+    }
+    if (cudaMallocManaged(&d_chiPp, sizeof(double)) != cudaSuccess) {
+        printf("Failed to allocate memory for d_chiPp\n");
+        exit(1);
+    }
+    if (cudaMallocManaged(&d_chiIx, sizeof(double)) != cudaSuccess) {
+        printf("Failed to allocate memory for d_chiIx\n");
+        exit(1);
+    }
+    if (cudaMallocManaged(&d_chiPx, sizeof(double)) != cudaSuccess) {
+        printf("Failed to allocate memory for d_chiPx\n");
+        exit(1);
+    }
+
 
     *d_chi2x = 0.0;
     *d_chi2p = 0.0;

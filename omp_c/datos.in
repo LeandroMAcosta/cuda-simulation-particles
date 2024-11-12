@@ -5,7 +5,7 @@
        Masa de las partículas en kg (M): 6.646473667973E-27
 Nº de hilos para la corrida (N_THREADS): 32
 Tandas (nº de pasos) para esta corrida (steps): 
-20000 30000 50000
+0 20000 30000 50000
 # 200000 300000 500000 200000 300000 500000 200000 300000 500000 200000 300000 500000
 #   +1M              +3M                    +6M                             +10M
       Retomar desde un archivo anterior: sí retoma.dmp

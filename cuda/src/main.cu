@@ -70,8 +70,15 @@ int main() {
     int *h_h, *h_g, *h_hg;
 
     // Initialize host arrays with zeros
+    // BIN=500
+
+    // 2 * BINS + 4 = 1004
     h_h = (int *)calloc(2 * BINS + 4, sizeof(int));
+
+    // 2 * BINS = 1000
     h_g = (int *)calloc(2 * BINS, sizeof(int));
+
+    // 1004000
     h_hg = (int *)calloc((2 * BINS + 4) * (2 * BINS), sizeof(int));
 
     // Device arrays (used in GPU)
@@ -114,11 +121,6 @@ int main() {
         read_data(inputFilename, h_x, h_p, &evolution, N_PART);
         cudaMemcpy(d_x, h_x, sizeof(d_x[0]) * N_PART, cudaMemcpyHostToDevice);
         cudaMemcpy(d_p, h_p, sizeof(d_p[0]) * N_PART, cudaMemcpyHostToDevice);
-
-        // TODO: Check if this is necessary
-        double Et = energy_sum(d_p, N_PART, evolution, M);
-        make_hist(h_h, h_g, h_hg, d_h, d_g, d_hg, d_DxE, d_DpE, filename, BINS, Et);
-
     }
 
     RealTypePartialSum Et = energy_sum(d_p, N_PART, evolution, M);
@@ -132,9 +134,21 @@ int main() {
         simulate_particle_motion<<<numBlocks, threadsPerBlock>>>(steps[j], d_x, d_p, N_PART, DT, M, sigmaL);
         cudaDeviceSynchronize();
 
+        cudaError_t error_1 = cudaGetLastError();
+        if (error_1 != cudaSuccess) {
+            printf("CUDA error after simulation: %s\n", cudaGetErrorString(error_1));
+            exit(1);
+        }
+
         int numBlocksUpdateHist = (N_PART + threadsPerBlock - 1) / threadsPerBlock;
         update_histograms_kernel<<<numBlocksUpdateHist, threadsPerBlock>>>(d_x, d_p, d_h, d_g, d_hg, N_PART, BINS);
         cudaDeviceSynchronize();
+
+        cudaError_t error_2 = cudaGetLastError();
+        if (error_2 != cudaSuccess) {
+            printf("CUDA error after update_histograms_kernel: %s\n", cudaGetErrorString(error_2));
+            exit(1);
+        }
 
         evolution += steps[j];
         if (evolution < 10000000) {
@@ -168,9 +182,9 @@ int main() {
     cudaFree(d_hg);
     
     // Check for any device errors (after synchronization)
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        printf("CUDA Failed: %s\n", cudaGetErrorString(err));
+    cudaError_t final_error = cudaGetLastError();
+    if (final_error != cudaSuccess) {
+        printf("CUDA Failed: %s\n", cudaGetErrorString(final_error));
         exit(1);
     }
 
