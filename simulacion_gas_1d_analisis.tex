@@ -1,0 +1,362 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{physics}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{siunitx}
+\usepackage{booktabs}
+
+\geometry{margin=2.5cm}
+
+\lstset{
+    language=C,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red},
+    numberstyle=\tiny\color{gray},
+    breaklines=true,
+    frame=single,
+    numbers=left
+}
+
+\title{\textbf{Análisis Académico de una Simulación de Gas Unidimensional}\\
+       \large{Aspectos Físicos y Computacionales}}
+\author{Análisis del código OpenMP C}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\section{Introducción}
+
+Este documento presenta un análisis académico exhaustivo de una simulación computacional de partículas de gas en una dimensión espacial. La simulación emplea OpenMP para paralelización y utiliza métodos de Monte Carlo para modelar el comportamiento estocástico del sistema. Analizaremos tanto los aspectos físicos fundamentales como los aspectos computacionales de la implementación.
+
+\section{Marco Teórico Físico}
+
+\subsection{Modelo Físico Fundamental}
+
+La simulación implementa un modelo de gas unidimensional basado en los siguientes principios:
+
+\subsubsection{Ecuación de Movimiento Clásica}
+
+El movimiento de cada partícula sigue la ecuación newtoniana básica:
+
+\begin{equation}
+x_{n+1} = x_n + \frac{p_n \cdot \Delta t}{m}
+\end{equation}
+
+donde:
+\begin{itemize}
+    \item $x_n$ es la posición de la partícula en el paso temporal $n$
+    \item $p_n$ es el momento lineal de la partícula
+    \item $m$ es la masa de la partícula (\SI{6.646473667973e-27}{\kilogram})
+    \item $\Delta t$ es el paso temporal (\SI{4.430982591982e-7}{\second})
+\end{itemize}
+
+Esta ecuación representa la integración temporal de primer orden de la velocidad clásica $v = p/m$.
+
+\subsubsection{Condiciones de Frontera Periódicas con Reflexión Estocástica}
+
+El sistema implementa condiciones de frontera especiales. Cuando una partícula alcanza los límites del dominio espacial ($|x| > 0.5$), se produce un evento de reflexión que incluye:
+
+\begin{equation}
+k = \text{trunc}(x + 0.5 \cdot \text{sign}(p))
+\end{equation}
+
+donde $k$ representa el número de cruces de frontera. Para cada cruce ($k \neq 0$), se aplica:
+
+\begin{equation}
+\Delta x = \sqrt{|k|} \cdot \xi_1 \cdot \cos(\xi_2) \cdot \sigma_L
+\end{equation}
+
+donde $\xi_1$ y $\xi_2$ son variables aleatorias gaussiana y uniforme respectivamente, y $\sigma_L = \SI{0.0001}{\meter}$ es la incertidumbre en la posición.
+
+\subsubsection{Modificación Estocástica del Momento}
+
+Durante cada reflexión, el momento se modifica según:
+
+\begin{equation}
+\Delta E = \alpha \cdot (|p| - p_{\min}) \cdot (p_{\max} - |p|)
+\end{equation}
+
+\begin{equation}
+p_{\text{new}} = \sqrt{\max(0, p^2 + \Delta E \cdot (\text{random} - 0.5))}
+\end{equation}
+
+donde:
+\begin{itemize}
+    \item $\alpha$ es un parámetro de acoplamiento (inicializado en 0)
+    \item $p_{\min} = \SI{2.0e-26}{\kilogram\meter\per\second}$
+    \item $p_{\max} = \SI{3.0e-23}{\kilogram\meter\per\second}$
+\end{itemize}
+
+\subsection{Distribución de Equilibrio}
+
+\subsubsection{Distribución Espacial}
+
+El sistema espera una distribución espacial uniforme en el estado de equilibrio:
+
+\begin{equation}
+\rho_x(x) = \frac{N_{\text{part}}}{L}
+\end{equation}
+
+donde $L = 1$ es la longitud del dominio espacial y $N_{\text{part}} = 2^{21} = 2,097,152$ es el número total de partículas.
+
+\subsubsection{Distribución de Maxwell-Boltzmann}
+
+La distribución esperada de momentos sigue una gaussiana:
+
+\begin{equation}
+\rho_p(p) = \frac{N_{\text{part}}}{\sigma_p \sqrt{2\pi}} \exp\left(-\frac{(p - \mu_p)^2}{2\sigma_p^2}\right)
+\end{equation}
+
+donde $\sigma_p = \SI{5.24684e-24}{\kilogram\meter\per\second}$ y $\mu_p = 0$ (distribución centrada).
+
+\section{Implementación Computacional}
+
+\subsection{Arquitectura de Datos}
+
+\subsubsection{Tipos de Datos Primitivos}
+
+La simulación utiliza tipos de datos específicos para optimización:
+
+\begin{lstlisting}[caption=Tipos de datos principales]
+double *x;    // Posiciones: IEEE 754 double precision (64 bits)
+double *p;    // Momentos: IEEE 754 double precision (64 bits)
+int *h;       // Histograma espacial: enteros con signo de 32 bits
+int *g;       // Histograma de momentos: enteros con signo de 32 bits
+uint32_t;     // Semillas PRNG: enteros sin signo de 32 bits
+\end{lstlisting}
+
+\subsubsection{Estructura de Memoria}
+
+El programa aloca memoria de forma dinámica para arrays unidimensionales:
+
+\begin{equation}
+\begin{aligned}
+\text{Memoria}_{\text{posiciones}} &= N_{\text{part}} \times 8 \text{ bytes} \\
+\text{Memoria}_{\text{momentos}} &= N_{\text{part}} \times 8 \text{ bytes} \\
+\text{Memoria}_{\text{histogramas}} &= (4 \times \text{BINS} + 4) \times 4 \text{ bytes}
+\end{aligned}
+\end{equation}
+
+Para $N_{\text{part}} = 2^{21}$ y $\text{BINS} = 500$:
+- Memoria total para partículas: $\sim 33.6$ MB
+- Memoria para histogramas: $\sim 8$ KB
+
+\subsection{Algoritmos de Generación de Números Aleatorios}
+
+\subsubsection{Generador XORShift}
+
+La simulación implementa el algoritmo XORShift para generación de números pseudoaleatorios:
+
+\begin{lstlisting}[caption=Implementación XORShift]
+inline double d_xorshift(uint32_t *state) {
+    uint32_t x = *state;
+    x ^= x << 13;    // Operación XOR con desplazamiento izquierdo
+    x ^= x >> 17;    // Operación XOR con desplazamiento derecho
+    x ^= x << 5;     // Operación XOR con desplazamiento izquierdo
+    *state = x;
+    return (double)x / (double)UINT32_MAX;
+}
+\end{lstlisting}
+
+Este algoritmo tiene período $2^{32} - 1$ y es computacionalmente eficiente para simulaciones paralelas.
+
+\subsubsection{Transformación de Box-Muller}
+
+Para generar variables aleatorias gaussianas, se utiliza la transformación de Box-Muller:
+
+\begin{equation}
+\begin{aligned}
+\xi_1 &= \sqrt{-2\ln(U_1 + 10^{-35})} \\
+\xi_2 &= 2\pi U_2 \\
+Z_1 &= \xi_1 \cos(\xi_2) \\
+Z_2 &= \xi_1 \sin(\xi_2)
+\end{aligned}
+\end{equation}
+
+donde $U_1, U_2$ son variables uniformes en $[0,1]$ y $Z_1, Z_2$ son gaussianas independientes con $\mu = 0, \sigma = 1$.
+
+\subsection{Paralelización con OpenMP}
+
+\subsubsection{Estrategias de Paralelización}
+
+El código emplea varias directivas OpenMP para optimizar el rendimiento:
+
+\begin{lstlisting}[caption=Paralelización de la inicialización]
+#pragma omp parallel for reduction(+:DpE[:2*BINS]) schedule(static)
+for (int i = 0; i < BINS << 1; i++) {
+    // Cálculo de distribución esperada de momentos
+}
+\end{lstlisting}
+
+\begin{lstlisting}[caption=Paralelización del bucle principal]
+#pragma omp parallel shared(x, p)
+{
+    uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
+    #pragma omp for private(k, signop) schedule(dynamic)
+    for (int i = 0; i < N_PART; ++i) {
+        // Evolución temporal de cada partícula
+    }
+}
+\end{lstlisting}
+
+\subsubsection{Análisis de Complejidad Computacional}
+
+\begin{itemize}
+    \item \textbf{Complejidad temporal}: $O(N_{\text{part}} \times N_{\text{steps}})$ por iteración
+    \item \textbf{Complejidad espacial}: $O(N_{\text{part}} + \text{BINS})$
+    \item \textbf{Escalabilidad}: Lineal con el número de threads hasta límite de memoria compartida
+\end{itemize}
+
+\section{Análisis Estadístico}
+
+\subsection{Pruebas de Bondad de Ajuste}
+
+El programa implementa múltiples pruebas chi-cuadrado para validar las distribuciones:
+
+\subsubsection{Chi-cuadrado para Distribución Espacial}
+
+\begin{equation}
+\chi^2_x = \frac{1}{2\text{BINS} - 4} \sum_{i=4}^{2\text{BINS}} \frac{(h_i - D_{x,i})^2}{D_{x,i}}
+\end{equation}
+
+donde $h_i$ es el histograma observado y $D_{x,i}$ es la distribución teórica esperada.
+
+\subsubsection{Chi-cuadrado para Distribución de Momentos}
+
+\begin{equation}
+\chi^2_p = \frac{1}{2(\text{BINS} - \text{BORDES})} \sum_{i=\text{BORDES}}^{2\text{BINS}-\text{BORDES}} \frac{(g_i - D_{p,i})^2}{D_{p,i}}
+\end{equation}
+
+\subsubsection{Pruebas de Simetría}
+
+Para verificar la simetría espacial:
+
+\begin{equation}
+\chi^2_{I,x} = \frac{1}{2(\text{BINS} - 2)} \sum_{i=4}^{\text{BINS}+1} \frac{(h_i - h_{2\text{BINS}+3-i})^2}{D_{x,i}}
+\end{equation}
+
+\section{Conservación de Energía}
+
+\subsection{Cálculo de Energía Total}
+
+La energía cinética total del sistema se calcula como:
+
+\begin{equation}
+E_{\text{total}} = \sum_{i=1}^{N_{\text{part}}} \frac{p_i^2}{2m}
+\end{equation}
+
+Esta cantidad se monitorea durante toda la simulación para verificar la conservación aproximada de energía.
+
+\subsection{Implementación Paralela del Cálculo Energético}
+
+\begin{lstlisting}[caption=Cálculo paralelo de energía]
+#pragma omp parallel for reduction(+:sumEnergy) schedule(static)
+for (int i = 0; i < N_PART; i++) {
+    sumEnergy += p[i] * p[i];
+}
+return sumEnergy / (2 * M);
+\end{lstlisting}
+
+La directiva \texttt{reduction} asegura que la suma se realice de forma thread-safe.
+
+\section{Gestión de Archivos y Persistencia}
+
+\subsection{Formato de Archivos de Datos}
+
+Los archivos de estado del sistema utilizan formato binario:
+
+\begin{lstlisting}[caption=Estructura de archivos binarios]
+struct {
+    unsigned int evolution;     // 4 bytes: número de pasos
+    double x[N_PART];          // 8*N_PART bytes: posiciones
+    double p[N_PART];          // 8*N_PART bytes: momentos
+};
+\end{lstlisting}
+
+\subsection{Archivos de Histogramas}
+
+Los histogramas se guardan en formato ASCII con la siguiente estructura:
+
+\begin{equation}
+\text{Formato: } x_i \quad h_i \quad p_i \quad g_i \quad \text{(estadísticas chi-cuadrado)}
+\end{equation}
+
+\section{Optimizaciones y Consideraciones Numéricas}
+
+\subsection{Precisión Numérica}
+
+\begin{itemize}
+    \item \textbf{Punto flotante}: IEEE 754 double precision (15-17 dígitos decimales)
+    \item \textbf{Estabilidad temporal}: $\Delta t$ elegido para mantener $\frac{p \Delta t}{m} \ll 1$
+    \item \textbf{Condición CFL}: Implícitamente satisfecha por la elección de parámetros
+\end{itemize}
+
+\subsection{Técnicas de Optimización}
+
+\begin{enumerate}
+    \item \textbf{Operaciones bit-shift}: \texttt{BINS << 1} en lugar de \texttt{2*BINS}
+    \item \textbf{Scheduling dinámico}: Para balancear carga entre threads
+    \item \textbf{Memory alignment}: Arrays alocados dinámicamente para evitar cache misses
+    \item \textbf{Loop unrolling}: Implícito en compiladores optimizadores
+\end{enumerate}
+
+\section{Validación Física}
+
+\subsection{Teorema de Equipartición}
+
+En equilibrio térmico, el sistema debe satisfacer:
+
+\begin{equation}
+\langle E_{\text{cinética}} \rangle = \frac{1}{2} k_B T
+\end{equation}
+
+donde $k_B$ es la constante de Boltzmann y $T$ la temperatura efectiva del sistema.
+
+\subsection{Criterios de Convergencia}
+
+La simulación considera convergencia cuando:
+
+\begin{equation}
+\chi^2_x < \text{umbral} \quad \text{y} \quad \chi^2_p < \text{umbral}
+\end{equation}
+
+Típicamente, umbrales alrededor de 1.0-2.0 indican buen ajuste a las distribuciones teóricas.
+
+\section{Conclusiones}
+
+Esta simulación representa una implementación robusta de dinámica molecular unidimensional con las siguientes características destacadas:
+
+\begin{enumerate}
+    \item \textbf{Física}: Implementa correctamente ecuaciones newtonianas con condiciones de frontera estocásticas
+    \item \textbf{Computación}: Utiliza paralelización eficiente y algoritmos numericos estables
+    \item \textbf{Estadística}: Incluye validación rigurosa mediante pruebas chi-cuadrado
+    \item \textbf{Escalabilidad}: Arquitectura preparada para sistemas de gran escala
+\end{enumerate}
+
+El código demuestra una excelente integración entre principios físicos fundamentales y técnicas computacionales avanzadas, proporcionando una herramienta valiosa para el estudio de sistemas de muchas partículas en una dimensión.
+
+\section{Referencias Técnicas}
+
+\begin{enumerate}
+    \item OpenMP Architecture Review Board. \textit{OpenMP Application Programming Interface}, versión 4.5
+    \item Marsaglia, G. \textit{Xorshift RNGs}. Journal of Statistical Software, 2003
+    \item Box, G.E.P.; Muller, M.E. \textit{A Note on the Generation of Random Normal Deviates}. Annals of Mathematical Statistics, 1958
+    \item Allen, M.P.; Tildesley, D.J. \textit{Computer Simulation of Liquids}. Oxford University Press, 1987
+\end{enumerate}
+
+\end{document} 

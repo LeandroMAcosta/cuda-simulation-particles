@@ -1,0 +1,146 @@
+# OpenMP C Particle Simulation Project (.cursorrules)
+
+## Project Overview
+This is a 1D gas particle simulation written in C with OpenMP parallelization. The project models gas particles in a 1D container with:
+- Discrete momentum states and wall noise
+- Energy redistribution with uniform distribution: [Ej-ΔE/2, Ej+ΔE/2]
+- Histogram binning for position (x) and momentum (p) analysis
+- Support for both double and float32 precision (float32 version optimized for performance)
+
+## Project Goals
+- Migrate this 1D gas particle simulation with CUDA
+- Focuse on optimize computational performance and memory usage
+- Use the best practices for CUDA programming
+- Use the best practices for performance optimization
+- Use the best practices for memory optimization
+- Use the best practices for code readability
+- Use the best practices for code maintainability
+
+## Project Structure
+
+### Main Directories:
+- `omp_c/` - Original double precision implementation
+- `cuda/` - CUDA implementation (target implementation)
+
+### Core Files (omp_c/):
+- `src/g1D-1000.c` - Main simulation code with particle dynamics
+- `src/utils.c` - Utility functions (RNG, file I/O, mathematical operations)
+- `include/constants.h` - Physical constants and simulation parameters
+- `include/utils.h` - Function declarations and macros
+- `datos.in` - Input parameters file
+- `Makefile` - Build configuration
+- `create_graphs.sh` - Automatic graph generation script
+
+### Output Files:
+- `X*.dat` - Histogram data files (position/momentum distributions)
+- `graba.dmp` - Binary particle state dump for resuming simulations
+- `histogram_*.png` - Generated histogram visualizations
+- `plot_histograms_*.gp` - GNU plot scripts
+
+## Target project structure
+
+```
+cuda/
+├── src/
+│   ├── kernels.cu              # TODOS los kernels en un archivo
+│   ├── main.cu                 # Programa principal
+│   └── utils.cu                # Funciones de utilidad
+├── include/
+│   ├── types.h                 # Todos los tipos y constantes
+│   ├── utils.h                 # Funciones de utilidad
+│   ├── constants.h             # Constantes físicas y parámetros de simulación
+│   └── kernels.h               # Declaraciones de kernels
+├── config.h                    # Configuración unificada
+├── Makefile                    # Build system simple
+└── datos.in                    # Parámetros de entrada
+```
+
+## How to Compile and Run
+
+### Quick Start (omp_c):
+```bash
+cd omp_c/
+make clean && make
+./main
+```
+
+## Input Configuration (datos.in)
+
+Format:
+```
+# Line 1: Comment header
+# Line 2: Number of particles (N_PART): 2097152
+# Line 3: (Number of bins - 1)/2 (BINS): 500  
+# Line 4: Delta t in seconds (DT): 4.430982591982e-7
+# Line 5: Particle mass in kg (M): 6.646473667973E-27
+# Line 6: Number of threads (N_THREADS): 32
+# Line 7: Steps header
+# Line 8: Time steps for output: 0 20000 30000 50000
+# Line 9-11: Optional additional configurations
+# Line 12: Uncertainty for L (m): 0.0001
+```
+
+## Output Analysis (.dat files)
+
+### .dat File Format:
+Each X*.dat file contains histogram data with 4 columns:
+- Column 1: x position bins (histogram centers)
+- Column 2: Population count for x positions  
+- Column 3: p momentum bins (histogram centers)
+- Column 4: Population count for momentum
+
+### Typical Analysis Workflow:
+1. Run simulation: `./main`
+2. Generate graphs: `./create_graphs.sh [file1.dat file2.dat ...]`
+3. View histograms: `histogram_1_2.png` (position) and `histogram_3_4.png` (momentum)
+
+### Manual Analysis:
+```bash
+# View data structure
+head -10 X0100000.dat
+
+```
+Result: 
+```bash
+#   x    poblacion       p      poblacion    chi2x = 1.007891  chi2xr = 1.007891  chiIx = 1.008636  chiPx = 1.007146  chi2p =1149.081474  chiIp =2297.054589  chiPp = 1.108360  Et=4.338690692E-15
+-0.50150      0      -2.997000000000E-23      0
+-0.50050     41      -2.997000000000E-23      0
+-0.49950   2033      -2.997000000000E-23      0
+-0.49850   2052      -2.991000000000E-23      0
+-0.49750   2040      -2.985000000000E-23      0
+-0.49650   2054      -2.979000000000E-23      0
+-0.49550   2140      -2.973000000000E-23      0
+-0.49450   2063      -2.967000000000E-23      0
+...
+
+```
+
+# Check population distribution
+awk '{sum2+=$2; sum4+=$4} END {print "X population:", sum2, "P population:", sum4}' X0020000.dat
+
+### Validation Checks:
+1. **Energy Conservation**: Check energy values in output
+2. **Population Conservation**: Total particles should remain constant (~2M)
+3. **Distribution Shape**: Histograms should show proper bell curves
+4. **No Artifacts**: Check for unrealistic particle concentrations (>100k in single bin)
+
+
+### Debugging:
+- Compile with `-g` flag for debugging symbols
+- Use `gdb ./main` for step-by-step debugging
+- Add `printf` statements for value tracking
+- Check `constants.h` for proper float32 ranges
+
+
+## File Naming Convention:
+- `X0000000.dat` - Initial state (t=0)
+- `X0020000.dat` - After 20,000 time steps
+- `X0050000.dat` - After 50,000 time steps
+- `graba.dmp` - Binary state file (can resume simulation)
+
+## Troubleshooting:
+1. **Wrong Graphs**: Verify histogram binning precision
+
+## Analysis Tools:
+- GNU Plot: For histogram visualization
+- Shell scripts: For automated analysis
