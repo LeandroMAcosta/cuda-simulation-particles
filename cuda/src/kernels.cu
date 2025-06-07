@@ -2,6 +2,9 @@
 #include "../include/types.h"
 #include "../config.h"
 
+// Definition of constant memory for simulation parameters
+__device__ __constant__ SimulationParams d_params;
+
 // Device random number generation using cuRAND
 __device__ double d_curand(curandState *state) {
     return curand_uniform_double(state);
@@ -69,9 +72,9 @@ __global__ void initialize_position_distribution(double *DxE, int BINS, int N_PA
 
 // Main particle evolution kernel
 __global__ void particle_evolution_kernel(double *x, double *p, curandState *states, 
-                                         SimulationParams params, int steps) {
+                                         int steps) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= params.N_PART) return;
+    if (idx >= d_params.N_PART) return;
     
     curandState localState = states[idx];
     double x_tmp = x[idx];
@@ -83,7 +86,7 @@ __global__ void particle_evolution_kernel(double *x, double *p, curandState *sta
     
     for (int step = 0; step < steps; step++) {
         // Update position
-        x_tmp += p_tmp * params.DT / params.M;
+        x_tmp += p_tmp * d_params.DT / d_params.M;
         
         // Check for wall collision
         int signop = copysign(1.0, p_tmp);
@@ -95,7 +98,7 @@ __global__ void particle_evolution_kernel(double *x, double *p, curandState *sta
             double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
             randomValue = curand_uniform_double(&localState);
             double xi2 = 2.0 * PI * randomValue;
-                         double deltaX = sqrt((double)labs(k)) * xi1 * cos(xi2) * params.sigmaL;
+                         double deltaX = sqrt((double)labs(k)) * xi1 * cos(xi2) * d_params.sigmaL;
             deltaX = (fabs(deltaX) > 1.0 ? 1.0 * copysign(1.0, deltaX) : deltaX);
             
             x_tmp = (k % 2 ? -1.0 : 1.0) * (x_tmp - k) + deltaX;

@@ -3,6 +3,9 @@
 
 #include "types.h"
 
+// Declaration of constant memory for simulation parameters
+extern __device__ __constant__ SimulationParams d_params;
+
 // Kernel function declarations
 
 // Initialization kernels
@@ -13,7 +16,7 @@ __global__ void initialize_position_distribution(double *DxE, int BINS, int N_PA
 
 // Simulation kernels
 __global__ void particle_evolution_kernel(double *x, double *p, curandState *states, 
-                                         SimulationParams params, int steps);
+                                         int steps);
 
 // Histogram kernels  
 __global__ void clear_histograms(int *h, int *g, int *hg, int BINS);

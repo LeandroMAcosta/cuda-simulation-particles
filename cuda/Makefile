@@ -3,7 +3,7 @@
 # Compiler settings
 NVCC := nvcc
 CFLAGS := -Wall -Wextra -O3 -std=c++14
-CUDAFLAGS := -O3 -lineinfo --ptxas-options=-v
+CUDAFLAGS := -O3 -lineinfo --ptxas-options=-v -rdc=true
 LIBS := -lm -lcurand
 
 # GPU Architecture - can be overridden with make GPU_ARCH=XX
@@ -40,7 +40,7 @@ all: $(TARGET)
 
 # Build target
 $(TARGET): $(OBJECTS)
-	$(NVCC) $(ARCH_FLAGS) $(CUDAFLAGS) -o $@ $^ $(LIBS)
+	$(NVCC) $(ARCH_FLAGS) $(CUDAFLAGS) -rdc=true -o $@ $^ $(LIBS)
 
 # Compile .cu files
 %.o: %.cu

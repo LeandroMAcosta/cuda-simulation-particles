@@ -222,3 +222,84 @@ NVTX annotations: For Nsight profiling
 ;
 Memory profiling: Track GPU memory usage
 Performance counters: Throughput, occupancy metrics
+
+
+
+# Bottlenecks 
+Kernel Time: The particle_evolution_kernel is the overwhelming bottleneck, consuming 100% of the GPU's kernel execution time.
+API Time: The cudaDeviceSynchronize call takes up 99% of the host-side time, but only because it's waiting for particle_evolution_kernel to complete.
+The conclusion is simple and clear: we must optimize particle_evolution_kernel.
+My plan to do this involved two steps:
+Move the simulation parameters to constant memory to reduce data transfer.
+Optimize the random number generation within the kernel to reduce global memory access.
+It looks like my attempts to apply these changes were part of the failure loop. Let me first read the relevant files to see the current state of the code. Then, I will carefully re-attempt the optimizations.
+
+Processing [cuda_simulation.sqlite] with [/opt/nvidia/nsight-systems/2025.3.1/host-linux-x64/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
+ Time (%)  Total Time (ns)  Instances     Avg (ns)         Med (ns)        Min (ns)       Max (ns)       StdDev (ns)                                              Name                                           
+ --------  ---------------  ---------  ---------------  ---------------  -------------  -------------  ---------------  -----------------------------------------------------------------------------------------
+    100.0   61,131,001,607         12  5,094,250,133.9  4,573,384,311.0  3,011,411,027  7,731,234,847  1,986,966,844.0  particle_evolution_kernel(double *, double *, curandStateXORWOW *, SimulationParams, int)
+      0.0       21,493,376          1     21,493,376.0     21,493,376.0     21,493,376     21,493,376              0.0  init_rng_states(curandStateXORWOW *, unsigned long, int)                                 
+      0.0        7,349,054         13        565,311.8        555,301.0        553,221        674,981         33,066.1  compute_histograms(double *, double *, int *, int *, int *, int, int)                    
+      0.0          612,004          1        612,004.0        612,004.0        612,004        612,004              0.0  initialize_particles(double *, double *, curandStateXORWOW *, int)                       
+      0.0          602,533         14         43,038.1         42,368.5         40,032         49,600          2,872.7  energy_sum_kernel(double *, double *, int, double)                                       
+      0.0           24,833         13          1,910.2          1,888.0          1,760          2,240            126.2  clear_histograms(int *, int *, int *, int)                                               
+      0.0            4,096          1          4,096.0          4,096.0          4,096          4,096              0.0  initialize_momentum_distribution(double *, int, int)                                     
+      0.0            2,560          1          2,560.0          2,560.0          2,560          2,560              0.0  initialize_position_distribution(double *, int, int)                                     
+
+Processing [cuda_simulation.sqlite] with [/opt/nvidia/nsight-systems/2025.3.1/host-linux-x64/reports/cuda_gpu_mem_time_sum.py]... 
+
+ ** CUDA GPU MemOps Summary (by Time) (cuda_gpu_mem_time_sum):
+
+ Time (%)  Total Time (ns)  Count   Avg (ns)    Med (ns)  Min (ns)   Max (ns)   StdDev (ns)           Operation          
+ --------  ---------------  -----  -----------  --------  --------  ----------  -----------  ----------------------------
+    100.0      205,104,087     79  2,596,254.3  10,144.0     1,664  13,629,126  3,680,074.8  [CUDA memcpy Device-to-Host]
+
+Processing [cuda_simulation.sqlite] with [/opt/nvidia/nsight-systems/2025.3.1/host-linux-x64/reports/cuda_api_sum.py]... 
+
+ ** CUDA API Summary (cuda_api_sum):
+
+ Time (%)  Total Time (ns)  Num Calls     Avg (ns)      Med (ns)   Min (ns)    Max (ns)       StdDev (ns)             Name         
+ --------  ---------------  ---------  ---------------  ---------  --------  -------------  ---------------  ----------------------
+     99.0   61,168,780,759         55  1,112,159,650.2  295,748.0     4,861  7,731,536,281  2,304,739,153.0  cudaDeviceSynchronize 
+      0.6      370,854,160         23     16,124,093.9   50,341.0     3,920    369,479,125     77,028,701.7  cudaMalloc            
+      0.4      239,826,819         79      3,035,782.5  105,267.0    15,412     15,314,207      4,098,003.4  cudaMemcpy            
+      0.0        5,496,146         56         98,145.5   44,425.0    12,060      3,265,610        431,585.4  cudaLaunchKernel      
+      0.0          983,594         23         42,765.0   10,761.0     5,014        324,310         72,944.7  cudaFree              
+      0.0            1,541          1          1,541.0    1,541.0     1,541          1,541              0.0  cuModuleGetLoadingMode
+
+Processing [cuda_simulation.sqlite] with [/opt/nvidia/nsight-systems/2025.3.1/host-linux-x64/reports/nvtx_sum.py]... 
+
+ ** NVTX Range Summary (nvtx_sum):
+
+ Time (%)  Total Time (ns)  Instances      Avg (ns)          Med (ns)         Min (ns)        Max (ns)       StdDev (ns)     Style              Range           
+ --------  ---------------  ---------  ----------------  ----------------  --------------  --------------  ---------------  -------  ---------------------------
+     33.2   61,503,771,806          1  61,503,771,806.0  61,503,771,806.0  61,503,771,806  61,503,771,806              0.0  PushPop  :Main Simulation Loop      
+     33.0   61,133,444,417         12   5,094,453,701.4   4,573,580,958.5   3,011,759,123   7,731,553,790  1,986,984,430.0  PushPop  :Particle Evolution        
+      4.2    7,757,330,846          1   7,757,330,846.0   7,757,330,846.0   7,757,330,846   7,757,330,846              0.0  PushPop  :Simulation Iteration 12   
+      4.2    7,685,693,272          1   7,685,693,272.0   7,685,693,272.0   7,685,693,272   7,685,693,272              0.0  PushPop  :Simulation Iteration 6    
+      4.1    7,668,537,072          1   7,668,537,072.0   7,668,537,072.0   7,668,537,072   7,668,537,072              0.0  PushPop  :Simulation Iteration 9    
+      4.1    7,564,844,006          1   7,564,844,006.0   7,564,844,006.0   7,564,844,006   7,564,844,006              0.0  PushPop  :Simulation Iteration 3    
+      2.5    4,631,513,401          1   4,631,513,401.0   4,631,513,401.0   4,631,513,401   4,631,513,401              0.0  PushPop  :Simulation Iteration 2    
+      2.5    4,618,274,343          1   4,618,274,343.0   4,618,274,343.0   4,618,274,343   4,618,274,343              0.0  PushPop  :Simulation Iteration 8    
+      2.5    4,586,063,795          1   4,586,063,795.0   4,586,063,795.0   4,586,063,795   4,586,063,795              0.0  PushPop  :Simulation Iteration 5    
+      2.5    4,580,285,468          1   4,580,285,468.0   4,580,285,468.0   4,580,285,468   4,580,285,468              0.0  PushPop  :Simulation Iteration 11   
+      1.7    3,138,780,820          1   3,138,780,820.0   3,138,780,820.0   3,138,780,820   3,138,780,820              0.0  PushPop  :Simulation Iteration 10   
+      1.7    3,134,389,143          1   3,134,389,143.0   3,134,389,143.0   3,134,389,143   3,134,389,143              0.0  PushPop  :Simulation Iteration 4    
+      1.7    3,097,545,686          1   3,097,545,686.0   3,097,545,686.0   3,097,545,686   3,097,545,686              0.0  PushPop  :Simulation Iteration 1    
+      1.6    3,040,150,367          1   3,040,150,367.0   3,040,150,367.0   3,040,150,367   3,040,150,367              0.0  PushPop  :Simulation Iteration 7    
+      0.2      370,179,992          1     370,179,992.0     370,179,992.0     370,179,992     370,179,992              0.0  PushPop  :Memory Allocation         
+      0.1      204,625,583         12      17,052,131.9      13,222,544.0      11,463,466      23,888,164      5,727,592.5  PushPop  :DtoH Transfer             
+      0.1      127,279,040         12      10,606,586.7      10,668,372.5       9,775,107      11,617,493        600,847.9  PushPop  :Save Data                 
+      0.0       38,859,916          1      38,859,916.0      38,859,916.0      38,859,916      38,859,916              0.0  PushPop  :Initial Particle Setup    
+      0.0       34,153,235          1      34,153,235.0      34,153,235.0      34,153,235      34,153,235              0.0  PushPop  :Initial DtoH Transfer     
+      0.0       26,742,388         12       2,228,532.3       2,232,550.5       1,899,018       2,499,523        173,767.9  PushPop  :Final Energy & Histogram  
+      0.0       25,229,294          1      25,229,294.0      25,229,294.0      25,229,294      25,229,294              0.0  PushPop  :Initialization            
+      0.0        9,276,445         12         773,037.1         790,098.5         627,850       1,005,869        128,065.1  PushPop  :Compute Histograms        
+      0.0        1,962,474         13         150,959.5         169,609.0          24,248         335,547         82,550.0  PushPop  :Clear Histograms          
+      0.0        1,012,004          1       1,012,004.0       1,012,004.0       1,012,004       1,012,004              0.0  PushPop  :Initial Histogram Kernel  
+      0.0          949,767          1         949,767.0         949,767.0         949,767         949,767              0.0  PushPop  :Particle Init Kernel      
+      0.0          380,369          1         380,369.0         380,369.0         380,369         380,369              0.0  PushPop  :Initial Energy Computation
+
