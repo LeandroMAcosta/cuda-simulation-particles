@@ -12,15 +12,26 @@
 
 // Simulation data structure for better memory management
 typedef struct {
-    double *x;          // Particle positions
-    double *p;          // Particle momenta  
-    double *DxE;        // Expected position distribution
-    double *DpE;        // Expected momentum distribution
+    float *x;           // Particle positions (float32 for performance)
+    float *p;           // Particle momenta (float32 for performance)
+    double *DxE;        // Expected position distribution (double for accuracy)
+    double *DpE;        // Expected momentum distribution (double for accuracy)
     int *h;             // Position histogram
     int *g;             // Momentum histogram
     int *hg;            // Combined histogram
     curandState *rng_states; // RNG states for each thread
 } SimulationData;
+
+// Alternative optimized data layout for better memory coalescing
+typedef struct {
+    float4 *particle_data;  // x, p, vx, vy packed for coalescing
+    double *DxE;        // Expected position distribution (double for accuracy)
+    double *DpE;        // Expected momentum distribution (double for accuracy)
+    int *h;             // Position histogram
+    int *g;             // Momentum histogram
+    int *hg;            // Combined histogram
+    curandState *rng_states; // RNG states for each thread
+} OptimizedSimulationData;
 
 // Simulation parameters structure
 typedef struct {

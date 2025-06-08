@@ -102,12 +102,48 @@ make help
 ```
 
 ### GPU Architecture Selection
-Common GPU architectures:
-- Pascal (GTX 10xx): `GPU_ARCH=60` or `GPU_ARCH=61`
-- Volta (V100): `GPU_ARCH=70`
-- Turing (RTX 20xx): `GPU_ARCH=75`
-- Ampere (RTX 30xx): `GPU_ARCH=86`
-- Ampere (A30): `GPU_ARCH=80` (default)
+
+To optimize performance, set the correct GPU architecture for your hardware. Use `nvidia-smi --query-gpu=compute_cap --format=csv` to check your GPU's compute capability.
+
+#### GPU Architecture Reference Table
+
+| GPU_ARCH | Compute Capability | Architecture | Example GPUs |
+|----------|-------------------|--------------|--------------|
+| `50` | 5.0 | Maxwell | GTX 750, GTX 950 |
+| `52` | 5.2 | Maxwell | GTX 960, GTX 970, GTX 980 |
+| `60` | 6.0 | Pascal | GTX 1050, GTX 1060 |
+| `61` | 6.1 | Pascal | GTX 1070, GTX 1080, GTX 1080 Ti |
+| `70` | 7.0 | Volta | Tesla V100 |
+| `75` | 7.5 | Turing | RTX 2060, RTX 2070, RTX 2080, RTX 2080 Ti |
+| `80` | 8.0 | Ampere | RTX 3050, RTX 3060, A100 |
+| `86` | 8.6 | Ampere | RTX 3070, RTX 3080, RTX 3090 |
+| `89` | 8.9 | Ada Lovelace | RTX 4090 |
+
+#### Setting GPU Architecture
+
+**Option 1: Temporary (current build only)**
+```bash
+make GPU_ARCH=75  # Example for RTX 2080 Ti
+```
+
+**Option 2: Permanent (edit Makefile)**
+```bash
+# Edit line 10 in Makefile:
+GPU_ARCH ?= 75  # Change 80 to your GPU's value
+```
+
+**Option 3: Multiple architectures (for distribution)**
+```bash
+# Edit ARCH_FLAGS in Makefile for multiple targets:
+ARCH_FLAGS := -arch=sm_60 -arch=sm_70 -arch=sm_75 -arch=sm_86
+```
+
+#### Why GPU Architecture Matters
+
+1. **Performance**: Matching your GPU's architecture ensures optimal instruction usage
+2. **Compatibility**: Code compiled for newer architectures won't run on older GPUs  
+3. **Features**: Different architectures support different CUDA capabilities
+4. **Memory**: Newer architectures have improved memory subsystems
 
 ## Usage
 

@@ -7,7 +7,7 @@ CUDAFLAGS := -O3 -lineinfo --ptxas-options=-v -rdc=true
 LIBS := -lm -lcurand
 
 # GPU Architecture - can be overridden with make GPU_ARCH=XX
-GPU_ARCH ?= 80
+GPU_ARCH ?= 75
 ARCH_FLAGS := -arch=sm_$(GPU_ARCH)
 
 # Target executable

@@ -40,7 +40,7 @@ void load_parameters_from_file(char filename[], SimulationParams *params) {
     fclose(inputFile);
 }
 
-void read_data(char filename[], double *x, double *p, unsigned int *evolution, int N_PART) {
+void read_data(char filename[], float *x, float *p, unsigned int *evolution, int N_PART) {
     FILE *readFile = fopen(filename, "r");
     if (readFile == NULL) {
         printf("Error al abrir el archivo %s\n", filename);
@@ -52,17 +52,19 @@ void read_data(char filename[], double *x, double *p, unsigned int *evolution, i
     fclose(readFile);
 }
 
-double energy_sum_host(double *p, int N_PART, unsigned int evolution, double M) {
+double energy_sum_host(float *p, int N_PART, unsigned int evolution, double M) {
     double sumEnergy = 0;
     for (int i = 0; i < N_PART; i++) {
-        sumEnergy += p[i] * p[i];
+        // Convert to double for energy calculation accuracy
+        double p_double = (double)p[i];
+        sumEnergy += p_double * p_double;
     }
     double total_energy = sumEnergy / (2 * M);
     printf("N° de pasos %6d\tEnergía total = %12.9E\n", evolution, total_energy);
     return total_energy;
 }
 
-void save_data(char filename[], double *x, double *p, unsigned int evolution, int N_PART) {
+void save_data(char filename[], float *x, float *p, unsigned int evolution, int N_PART) {
     FILE *saveFile = fopen(filename, "w");
     if (saveFile == NULL) {
         printf("Error al abrir el archivo %s\n", filename);
@@ -74,15 +76,15 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
     // Complex energy redistribution logic from original
     int Npmod = (0 * N_PART) / (1 << 21);
     if (evolution % 1000000 == 0 && Npmod > 0) {
-        double f = 0.7071;
-        double *sqrtp2 = (double*)malloc(sizeof(double) * Npmod);
+        float f = 0.7071f;
+        float *sqrtp2 = (float*)malloc(sizeof(float) * Npmod);
         int np = 0;
         int i0 = rand() * N_PART / RAND_MAX;
         int i = i0;
         
         while ((np < Npmod) && (i < N_PART)) {
-            if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24) {
-                sqrtp2[np] = sqrt(1.0 - f * f) * p[i];
+            if (fabsf(p[i]) > (2.43f + 0.3f * np / Npmod) * 5.24684E-24f) {
+                sqrtp2[np] = sqrtf(1.0f - f * f) * p[i];
                 np++;
                 p[i] *= f;
             }
@@ -91,8 +93,8 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         
         i = 0;
         while ((np < Npmod) && (i < i0)) {
-            if (fabs(p[i]) > (2.43 + 0.3 * np / Npmod) * 5.24684E-24) {
-                sqrtp2[np] = sqrt(1.0 - f * f) * p[i];
+            if (fabsf(p[i]) > (2.43f + 0.3f * np / Npmod) * 5.24684E-24f) {
+                sqrtp2[np] = sqrtf(1.0f - f * f) * p[i];
                 np++;
                 p[i] *= f;
             }
@@ -105,9 +107,9 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         // Redistribute energy
         np = 0;
         while ((np < Npmod) && (i < N_PART)) {
-            int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) {
-                p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
+            int signopr = copysignf(1.0f, sqrtp2[np]);
+            if ((signopr * p[i] > 0) && (fabsf(p[i]) > 0.15f * 5.24684E-24f) && (fabsf(p[i]) < 0.9f * 5.24684E-24f)) {
+                p[i] = sqrtf(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0f);
                 np++;
             }
             i++;
@@ -188,8 +190,8 @@ int make_hist_host(int *h, int *g, int *hg, double *DxE, double *DpE, const char
 // Memory management functions
 void allocate_simulation_data(SimulationData *data, SimulationParams *params) {
     // Allocate host memory
-    data->x = (double*)malloc(sizeof(double) * params->N_PART);
-    data->p = (double*)malloc(sizeof(double) * params->N_PART);
+    data->x = (float*)malloc(sizeof(float) * params->N_PART);
+    data->p = (float*)malloc(sizeof(float) * params->N_PART);
     data->DxE = (double*)malloc(sizeof(double) * (2 * params->BINS + 4));
     data->DpE = (double*)malloc(sizeof(double) * (2 * params->BINS));
     data->h = (int*)malloc(sizeof(int) * (2 * params->BINS + 4));
@@ -217,15 +219,15 @@ void free_simulation_data(SimulationData *data) {
 }
 
 void copy_data_to_device(SimulationData *h_data, SimulationData *d_data, SimulationParams *params) {
-    CUDA_CHECK(cudaMemcpy(d_data->x, h_data->x, sizeof(double) * params->N_PART, cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_data->p, h_data->p, sizeof(double) * params->N_PART, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_data->x, h_data->x, sizeof(float) * params->N_PART, cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_data->p, h_data->p, sizeof(float) * params->N_PART, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_data->DxE, h_data->DxE, sizeof(double) * (2 * params->BINS + 4), cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_data->DpE, h_data->DpE, sizeof(double) * (2 * params->BINS), cudaMemcpyHostToDevice));
 }
 
 void copy_data_to_host(SimulationData *h_data, SimulationData *d_data, SimulationParams *params) {
-    CUDA_CHECK(cudaMemcpy(h_data->x, d_data->x, sizeof(double) * params->N_PART, cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(h_data->p, d_data->p, sizeof(double) * params->N_PART, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_data->x, d_data->x, sizeof(float) * params->N_PART, cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(h_data->p, d_data->p, sizeof(float) * params->N_PART, cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(h_data->h, d_data->h, sizeof(int) * (2 * params->BINS + 4), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(h_data->g, d_data->g, sizeof(int) * (2 * params->BINS), cudaMemcpyDeviceToHost));
     CUDA_CHECK(cudaMemcpy(h_data->hg, d_data->hg, sizeof(int) * (2 * params->BINS + 4) * (2 * params->BINS), cudaMemcpyDeviceToHost));

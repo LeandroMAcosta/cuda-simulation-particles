@@ -303,3 +303,14 @@ Processing [cuda_simulation.sqlite] with [/opt/nvidia/nsight-systems/2025.3.1/ho
       0.0          949,767          1         949,767.0         949,767.0         949,767         949,767              0.0  PushPop  :Particle Init Kernel      
       0.0          380,369          1         380,369.0         380,369.0         380,369         380,369              0.0  PushPop  :Initial Energy Computation
 
+
+
+
+Use 
+nsys profile --trace=cuda,nvtx --output=cuda_simulation_float32 --export=sqlite ./main 2>/dev/null
+
+and 
+
+nsys stats cuda_simulation_float32.sqlite --report cuda_gpu_kern_sum | head -15
+
+for the profiling.

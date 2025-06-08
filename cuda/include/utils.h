@@ -6,9 +6,9 @@
 
 // Host utility functions
 void load_parameters_from_file(char filename[], SimulationParams *params);
-void read_data(char filename[], double *x, double *p, unsigned int *evolution, int N_PART);
-void save_data(char filename[], double *x, double *p, unsigned int evolution, int N_PART);
-double energy_sum_host(double *p, int N_PART, unsigned int evolution, double M);
+void read_data(char filename[], float *x, float *p, unsigned int *evolution, int N_PART);
+void save_data(char filename[], float *x, float *p, unsigned int evolution, int N_PART);
+double energy_sum_host(float *p, int N_PART, unsigned int evolution, double M);
 int make_hist_host(int *h, int *g, int *hg, double *DxE, double *DpE, const char *filename, int BINS, double Et);
 
 // Memory management functions

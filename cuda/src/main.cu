@@ -6,8 +6,8 @@
 
 // Function to allocate device memory for simulation data
 void allocate_device_memory(SimulationData *d_data, SimulationParams *params) {
-    CUDA_CHECK(cudaMalloc(&d_data->x, sizeof(double) * params->N_PART));
-    CUDA_CHECK(cudaMalloc(&d_data->p, sizeof(double) * params->N_PART));
+    CUDA_CHECK(cudaMalloc(&d_data->x, sizeof(float) * params->N_PART));
+    CUDA_CHECK(cudaMalloc(&d_data->p, sizeof(float) * params->N_PART));
     CUDA_CHECK(cudaMalloc(&d_data->DxE, sizeof(double) * (2 * params->BINS + 4)));
     CUDA_CHECK(cudaMalloc(&d_data->DpE, sizeof(double) * (2 * params->BINS)));
     CUDA_CHECK(cudaMalloc(&d_data->h, sizeof(int) * (2 * params->BINS + 4)));
@@ -28,7 +28,7 @@ void free_device_memory(SimulationData *d_data) {
 }
 
 // Energy sum on device with reduction
-double compute_energy_on_device(double *d_p, int N_PART, double M) {
+double compute_energy_on_device(float *d_p, int N_PART, double M) {
     int num_blocks = GRID_SIZE(N_PART);
     double *d_partial_sums;
     double *h_partial_sums = (double*)malloc(sizeof(double) * num_blocks);
@@ -198,8 +198,15 @@ int main() {
         
         // Particle evolution kernel - main computation
         CUDA_CHECK(cudaEventRecord(start_event));
+        
+        #if USE_KERNEL_V2
+        particle_evolution_kernel_v2<<<gridSize, blockSize>>>(d_data.x, d_data.p, d_data.rng_states, 
+                                                              params.steps[j]);
+        #else
         particle_evolution_kernel<<<gridSize, blockSize>>>(d_data.x, d_data.p, d_data.rng_states, 
                                                           params.steps[j]);
+        #endif
+        
         CUDA_CHECK(cudaEventRecord(stop_event));
         CUDA_CHECK(cudaDeviceSynchronize());
         CUDA_CHECK(cudaEventElapsedTime(&kernel_time, start_event, stop_event));
