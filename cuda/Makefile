@@ -15,8 +15,12 @@ TARGET := main
 
 # Source files
 SRC_DIR := src
+KERNELS_DIR := $(SRC_DIR)/kernels
 INCLUDE_DIR := include
-SOURCES := $(SRC_DIR)/main.cu $(SRC_DIR)/kernels.cu $(SRC_DIR)/utils.cu
+SOURCES := $(SRC_DIR)/main.cu $(SRC_DIR)/utils.cu \
+           $(KERNELS_DIR)/init_kernels.cu $(KERNELS_DIR)/simulation_kernels.cu \
+           $(KERNELS_DIR)/histogram_kernels.cu $(KERNELS_DIR)/reduction_kernels.cu \
+           $(KERNELS_DIR)/utility_kernels.cu
 OBJECTS := $(SOURCES:.cu=.o)
 
 # Include directories
@@ -48,7 +52,7 @@ $(TARGET): $(OBJECTS)
 
 # Clean build artifacts
 clean:
-	rm -f $(TARGET) $(OBJECTS) *.dat *.dmp *.png *.gp
+	rm -f $(TARGET) $(SRC_DIR)/*.o $(KERNELS_DIR)/*.o *.dat *.dmp *.png *.gp
 
 # Deep clean including output files
 distclean: clean

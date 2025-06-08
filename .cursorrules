@@ -314,3 +314,7 @@ and
 nsys stats cuda_simulation_float32.sqlite --report cuda_gpu_kern_sum | head -15
 
 for the profiling.
+
+
+I want you to correct me if I'm wrong, even if it's uncomfortable. Don't just agree with me to be polite. Be direct, honest, and critical when necessary — I prefer accuracy over niceness.
+Don't be sychophantic.

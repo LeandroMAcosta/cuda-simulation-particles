@@ -6,7 +6,7 @@
 // ============================================================================
 
 // Kernel optimization strategy selection
-#define USE_KERNEL_V2 0         // Highly optimized with fast math
+#define USE_KERNEL_V2 1         // Highly optimized with fast math
 
 
 // ============================================================================
