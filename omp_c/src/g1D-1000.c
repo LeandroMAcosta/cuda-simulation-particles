@@ -14,8 +14,7 @@ int main()
     int X0 = 1;
     char filename[32];
 
-    // double d = 1.0e-72, alfa = 1.0e-4;
-    double d = 1.0e-72, alfa = 0;
+    double d = 1.0e-72, alfa = 1.0e-4;
     unsigned int evolution = 0u;
     double pmin = 2.0E-026, pmax = 3.0E-023;
 
@@ -90,8 +89,11 @@ int main()
                 int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
                 int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS));
                 int hg_idx = (2 * BINS) * h_idx + g_idx;
+#pragma omp atomic
                 h[h_idx]++;
+#pragma omp atomic
                 g[g_idx]++;
+#pragma omp atomic
                 hg[hg_idx]++;
             }
             double Et = energy_sum(p, N_PART, evolution, M);
@@ -116,25 +118,24 @@ int main()
         // iter_in_range code here:
         long int k;
         int signop;
-        #pragma omp parallel shared(x, p)
+#pragma omp parallel shared(x, p)
         {
             uint32_t seed = (uint32_t)(time(NULL) + omp_get_thread_num());
-            
-            #pragma omp for private(k, signop) schedule(dynamic)
+#pragma omp for private(k, signop) schedule(dynamic)
             for (int i = 0; i < N_PART; ++i)
             {
                 double x_tmp = x[i];
                 double p_tmp = p[i];
-
+//	printf("i=%d    x=%9.6f  p=%12.9E\n",i,x[i],p[i]);
                 for (int step = 0; step < steps[j]; step++)
                 {
-                    x_tmp += p_tmp * DT / M;
+                    x_tmp += p_tmp * DT / M; // ¡OJO que p_tmp tiene un SIGNO!
                     signop = copysign(1.0, p_tmp);
                     k = trunc(x_tmp + 0.5 * signop);
-
+//     if ( (x[i]!=x[i]) || (p[i]!=p[i]) || (x_tmp!=x_tmp) || (p_tmp!=p_tmp) ) { printf("i=%d   k=%ld   x_tmp=%9.6f   p_tmp=%12.9E   step=%d\n",i,k,x_tmp,p_tmp,step); step = steps[j]; }
                     if (k != 0)
                     {
-  			            double randomValue = d_xorshift(&seed);
+  			double randomValue = d_xorshift(&seed);
                         double xi1 = sqrt(-2.0 * log(randomValue + 1E-35));
                         randomValue = d_xorshift(&seed);
                         double xi2 = 2.0 * PI * randomValue;
@@ -151,12 +152,7 @@ int main()
                             double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
 //  if (2.0*DeltaE >= p_tmp*p_tmp) { printf("i=%d  DeltaE=%12.9E   p_tmp=%12.9E\n",i,DeltaE,p_tmp); }
                             randomValue = d_xorshift(&seed);
-                            // p_tmp = sqrt(fmax(0.0, p_tmp * p_tmp + DeltaE * (randomValue - 0.5)));
-                            double value = p_tmp * p_tmp + DeltaE * (randomValue - 0.5);
-                            if (value < 0.0) {
-                                value = 0.0;
-                            }
-                            p_tmp = sqrt(value);
+                            p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                         }
                         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop; // <-- devuelvo el signo
                     }
@@ -167,15 +163,18 @@ int main()
             }
         }
 // End of iter_in_range code.
-        #pragma omp for schedule(static)
+#pragma omp for schedule(static)
         for (int i = 0; i < N_PART; i++)
         {
 //     { printf("x=%9.6f   h_idx=%9.6f\n",x[i],floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0)); }
             int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
             int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS));
             int hg_idx = (2 * BINS) * h_idx + g_idx;
+// #pragma omp atomic
             h[h_idx]++;
+// #pragma omp atomic
             g[g_idx]++;
+// #pragma omp atomic
             hg[hg_idx]++;
         }
         evolution += steps[j];
@@ -185,9 +184,10 @@ int main()
         }
         else
         {
-            sprintf(filename, "X%1.3e.dat", (double)evolution);
-            char *e = memchr(filename, 'e', 32);
-            strcpy(e + 1, e + 3);
+            double millions = evolution / 1000000.0;
+            // Round to 1 decimal place to avoid floating point issues
+            millions = round(millions * 10.0) / 10.0;
+            sprintf(filename, "X%.1fM.dat", millions);
         }
         if (dump == 0)
         {

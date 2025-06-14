@@ -1,4 +1,5 @@
 CC := gcc
+# CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -g -O0
 CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -O3 -march=native -ffast-math
 CLIBS := -lm
 OMP := -fopenmp
