@@ -1,5 +1,4 @@
 CC := gcc
-# CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -g -O0
 CFLAGS := -Wall -Werror -Wextra -pedantic -std=c99 -O3 -march=native -ffast-math
 CLIBS := -lm
 OMP := -fopenmp
@@ -21,8 +20,4 @@ format:
 	clang-format -style=Microsoft -i src/*.c include/*.h
 
 clean:
-	rm -f $(TARGET) $(OBJ) *.png
-
-test:
-	@echo "Running test script..."
-	bash $(TEST_SCRIPT)
+	rm -f $(TARGET) $(OBJ) graba.dmp *.dat

@@ -89,11 +89,8 @@ int main()
                 int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
                 int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS));
                 int hg_idx = (2 * BINS) * h_idx + g_idx;
-#pragma omp atomic
                 h[h_idx]++;
-#pragma omp atomic
                 g[g_idx]++;
-#pragma omp atomic
                 hg[hg_idx]++;
             }
             double Et = energy_sum(p, N_PART, evolution, M);
@@ -170,11 +167,8 @@ int main()
             int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
             int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS));
             int hg_idx = (2 * BINS) * h_idx + g_idx;
-// #pragma omp atomic
             h[h_idx]++;
-// #pragma omp atomic
             g[g_idx]++;
-// #pragma omp atomic
             hg[hg_idx]++;
         }
         evolution += steps[j];
@@ -184,10 +178,9 @@ int main()
         }
         else
         {
-            double millions = evolution / 1000000.0;
-            // Round to 1 decimal place to avoid floating point issues
-            millions = round(millions * 10.0) / 10.0;
-            sprintf(filename, "X%.1fM.dat", millions);
+            sprintf(filename, "X%1.3e.dat", (double)evolution);
+            char *e = memchr(filename, 'e', 32);
+            strcpy(e + 1, e + 3);
         }
         if (dump == 0)
         {
