@@ -14,10 +14,9 @@ int main()
     int X0 = 1;
     char filename[32];
 
-    double d = 1.0e-72, alfa = 1.0e-4;
+    double d = 1.0e-72, alfa = 1e-4;
     unsigned int evolution = 0u;
-    double pmin = 2.0E-026, pmax = 3.0E-023;
-
+    double pmin = 2e-26, pmax = 3.0e-23;
     char data_filename[] = "datos.in";
 
     load_parameters_from_file(data_filename, &N_PART, &BINS, &DT, &M, &N_THREADS, &Ntandas, steps, inputFilename,
@@ -129,7 +128,6 @@ int main()
                     x_tmp += p_tmp * DT / M; // ¡OJO que p_tmp tiene un SIGNO!
                     signop = copysign(1.0, p_tmp);
                     k = trunc(x_tmp + 0.5 * signop);
-//     if ( (x[i]!=x[i]) || (p[i]!=p[i]) || (x_tmp!=x_tmp) || (p_tmp!=p_tmp) ) { printf("i=%d   k=%ld   x_tmp=%9.6f   p_tmp=%12.9E   step=%d\n",i,k,x_tmp,p_tmp,step); step = steps[j]; }
                     if (k != 0)
                     {
   			double randomValue = d_xorshift(&seed);
@@ -149,6 +147,7 @@ int main()
                             double DeltaE = alfa * (p_tmp - pmin) * (pmax - p_tmp);
 //  if (2.0*DeltaE >= p_tmp*p_tmp) { printf("i=%d  DeltaE=%12.9E   p_tmp=%12.9E\n",i,DeltaE,p_tmp); }
                             randomValue = d_xorshift(&seed);
+//    if ( DeltaE*(0.5-randomValue) >= p_tmp*p_tmp ) { printf("i=%d  DeltaE=%12.9E   p_tmp=%12.9E\n",i,DeltaE,p_tmp); }
                             p_tmp = sqrt(p_tmp * p_tmp + DeltaE * (randomValue - 0.5));
                         }
                         p_tmp *= (k % 2 ? -1.0 : 1.0) * signop; // <-- devuelvo el signo
@@ -156,7 +155,6 @@ int main()
                 }
                 x[i] = x_tmp;
                 p[i] = p_tmp;
-//    printf("i=%d  x[i]=%9.6f  x_tmp=%9.6f  p[i]=%12.9E  p_tmp=%12.9E\n",i,x[i],x_tmp,p[i],p_tmp);
             }
         }
 // End of iter_in_range code.
@@ -166,6 +164,9 @@ int main()
 //     { printf("x=%9.6f   h_idx=%9.6f\n",x[i],floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0)); }
             int h_idx = floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0);
             int g_idx = floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS));
+//    if ( (h_idx > 1002) || (g_idx > 997) || (h_idx = 0) || (g_idx < 2) ) {
+//     printf("x=%9.6f   h_idx=%9.6f    p=%12.9E   g_idx=%9.6f\n",x[i],floor((x[i]+0.5)*(1.99999999999999*BINS) + 2.0),p[i],floor((p[i] / 3.0e-23 + 1) * (0.999999999999994*BINS)));
+//    }
             int hg_idx = (2 * BINS) * h_idx + g_idx;
             h[h_idx]++;
             g[g_idx]++;

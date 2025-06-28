@@ -31,7 +31,7 @@ void load_parameters_from_file(char filename[], int *N_PART, int *BINS, double *
     }
     fscanf(inputFile, " %*[^:]: %s %s", du, inputFilename);
     *resume = strcmp(du, "sí");
-    printf("%s lee %s\t", du, inputFilename);
+    printf("%s lee %s  (N_Part:%d)\t", du, inputFilename, *N_PART);
     fscanf(inputFile, " %*[^:]: %s %s", du, saveFilename);
     printf("%s escribe %s\t", du, saveFilename);
     *dump = strcmp(du, "sí");
@@ -62,7 +62,7 @@ double energy_sum(double *p, int N_PART, unsigned int evolution, double M)
     {
         sumEnergy += p[i] * p[i];
     }
-    printf("N° de pasos %6d\tEnergía total = %12.9E\n", evolution, sumEnergy / (2 * M));
+    printf("N° de pasos %6u\tEnergía total = %12.9E\n", evolution, sumEnergy / (2 * M));
     return sumEnergy / (2 * M);
 }
 
@@ -76,7 +76,8 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
     }
     fwrite(&evolution, sizeof(evolution), 1, saveFile);
     fwrite(x, sizeof(x[0]) * N_PART, 1, saveFile);
-    int Npmod = (0 * N_PART) / (1 << 21);
+    int Npmod = (0 * N_PART) / (1 << 21);  // La versión oficial es con Npmod = 0 
+//    int Npmod = (20 * N_PART) / (1 << 21);  // La versión oficial es con Npmod = 0 
     if (evolution % 1000000 == 0 && Npmod > 0)
     {
         double f = 0.7071; // fraccion de p+ que queda en p+'
@@ -111,7 +112,7 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         while ((np < Npmod) && (i < N_PART))
         {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
+            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) // ORIGINAL
             {
                 p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
@@ -122,7 +123,7 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         while (np < Npmod)
         {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
+            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) // ORIGINAL
             {
                 p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
@@ -134,7 +135,7 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         while ((np < Npmod) && (i < N_PART))
         {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
+            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) // ORIGINAL
             {
                 p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
@@ -145,7 +146,7 @@ void save_data(char filename[], double *x, double *p, unsigned int evolution, in
         while (np < Npmod)
         {
             int signopr = copysign(1.0, sqrtp2[np]);
-            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24))
+            if ((signopr * p[i] > 0) && (fabs(p[i]) > 0.15 * 5.24684E-24) && (fabs(p[i]) < 0.9 * 5.24684E-24)) // ORIGINAL
             {
                 p[i] = sqrt(p[i] * p[i] + sqrtp2[np] * sqrtp2[np] / 2.0);
                 np++;
